@@ -93,7 +93,6 @@ namespace OpenUtau.App.ViewModels {
         public int SafeMaxThreadCount {
             get => Math.Min(8, LogicalCoreCount / 2);
         }
-        [Reactive] public partial bool SkipRenderingMutedTracks { get; set; }
         [Reactive] public partial bool ClearCacheOnQuit { get; set; }
         public List<string> OnnxRunnerOptions { get; set; }
         [Reactive] public partial string OnnxRunner { get; set; }
@@ -131,6 +130,9 @@ namespace OpenUtau.App.ViewModels {
         public string SetParamPath => Preferences.Default.SetParamPath;
 
         // Diffsinger
+        [Reactive] public partial int DiffSingerPreset { get; set; }
+        [Reactive] public partial bool IsDiffSingerCustom { get; set; }
+        [Reactive] public partial int LivePitchModeIndex { get; set; }
         public List<int> DiffSingerStepsOptions { get; } = new List<int> { 2, 5, 10, 20, 50, 100, 200, 500, 1000 };
         public List<int> DiffSingerStepsVarianceOptions { get; } = new List<int> { 2, 5, 10, 20, 50, 100, 200, 500, 1000 };
         public List<int> DiffSingerStepsPitchOptions { get; } = new List<int> { 2, 5, 10, 20, 50, 100, 200, 500, 1000 };
@@ -234,6 +236,9 @@ namespace OpenUtau.App.ViewModels {
                 "ggml" => "GGML",
                 _ => "ONNX",  // default / empty / unrecognized all map to ONNX
             };
+            DiffSingerPreset = Preferences.Default.DiffSingerPreset;
+            IsDiffSingerCustom = DiffSingerPreset == 3;
+            LivePitchModeIndex = Preferences.Default.RealTimePitchMode - 1;
             DiffSingerDepth = Preferences.Default.DiffSingerDepth * 100;
             DiffSingerSteps = Preferences.Default.DiffSingerSteps;
             DiffSingerStepsVariance = Preferences.Default.DiffSingerStepsVariance;
@@ -241,7 +246,6 @@ namespace OpenUtau.App.ViewModels {
             DiffSingerTensorCache = Preferences.Default.DiffSingerTensorCache;
             DiffSingerVarianceLocalPitchPatch = Preferences.Default.DiffSingerVarianceLocalPitchPatch;
             DiffSingerLangCodeHide = Preferences.Default.DiffSingerLangCodeHide;
-            SkipRenderingMutedTracks = Preferences.Default.SkipRenderingMutedTracks;
             ThemeName = Preferences.Default.ThemeName;
             DegreeStyle = Preferences.Default.DegreeStyle;
             UseTrackColor = Preferences.Default.UseTrackColor;
@@ -493,8 +497,19 @@ namespace OpenUtau.App.ViewModels {
                 value => Preferences.Default.DiffSingerVarianceLocalPitchPatch = value);
             PersistOn(this.WhenAnyValue(vm => vm.DiffSingerLangCodeHide),
                 value => Preferences.Default.DiffSingerLangCodeHide = value);
-            PersistOn(this.WhenAnyValue(vm => vm.SkipRenderingMutedTracks),
-                skipRenderingMutedTracks => Preferences.Default.SkipRenderingMutedTracks = skipRenderingMutedTracks);
+            PersistOn(this.WhenAnyValue(vm => vm.LivePitchModeIndex),
+                value => Preferences.Default.RealTimePitchMode = value + 1);
+            this.WhenAnyValue(vm => vm.DiffSingerPreset).Skip(1).Subscribe(value => {
+                Preferences.Default.DiffSingerPreset = value;
+                Preferences.Default.ApplyDiffSingerPreset();
+                IsDiffSingerCustom = value == 3;
+                DiffSingerSteps = Preferences.Default.DiffSingerSteps;
+                DiffSingerStepsVariance = Preferences.Default.DiffSingerStepsVariance;
+                DiffSingerStepsPitch = Preferences.Default.DiffSingerStepsPitch;
+                DiffSingerTensorCache = Preferences.Default.DiffSingerTensorCache;
+                LivePitchModeIndex = Preferences.Default.RealTimePitchMode - 1;
+                Preferences.Save();
+            });
         }
 
         public void TestAudioOutputDevice() {

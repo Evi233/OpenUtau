@@ -3,5 +3,6 @@ namespace OpenUtau.Core.Util {
         Off = 0,
         Normal = 1,
         Fast = 2,
+        Quality = 3,
     }
 }

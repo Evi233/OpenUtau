@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -65,6 +65,7 @@ namespace OpenUtau.App.ViewModels {
         [Reactive] public partial TracksViewModel TracksViewModel { get; set; }
         /// <summary>Whether the docked settings panel on the right is expanded.</summary>
         [Reactive] public partial bool IsPreferencesPanelOpen { get; set; }
+        [Reactive] public partial bool IsRenderPanelOpen { get; set; }
         /// <summary>
         /// Backs the settings panel. Created lazily the first time the panel is
         /// opened and kept for the lifetime of the window, because
@@ -79,6 +80,14 @@ namespace OpenUtau.App.ViewModels {
         /// <see cref="TrackVoiceViewModel"/> has no teardown for its subscriptions.
         /// </summary>
         [Reactive] public partial TrackVoiceViewModel? VoiceViewModel { get; set; }
+        /// <summary>Whether the docked note properties panel on the right is expanded.</summary>
+        [Reactive] public partial bool IsNotePropertiesPanelOpen { get; set; }
+        /// <summary>
+        /// Backs the note properties panel, which edits whichever notes the piano roll has
+        /// selected. Created lazily and kept for the lifetime of the window, because
+        /// <see cref="NotePropertiesViewModel"/> has no teardown for its subscriptions.
+        /// </summary>
+        [Reactive] public partial NotePropertiesViewModel? NotePropertiesViewModel { get; set; }
         /// <summary>
         /// Backs the singer editor window. Created lazily and kept for the
         /// lifetime of the window, because

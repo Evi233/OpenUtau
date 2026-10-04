@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
@@ -646,6 +646,40 @@ namespace OpenUtau.App.Views {
             viewModel.IsVoicePanelOpen = false;
         }
 
+        /// <summary>
+        /// Opens or closes the note properties panel. The function bar and the piano roll's
+        /// own toggle both come through here, so there is one panel and one open state.
+        /// </summary>
+        public void ToggleNotePropertiesPanel() {
+            if (viewModel.IsNotePropertiesPanelOpen) {
+                viewModel.IsNotePropertiesPanelOpen = false;
+                return;
+            }
+            // Built before showing the panel so it is never briefly rendered with a null
+            // DataContext. The piano roll may already have a part open with notes selected,
+            // and the panel is only built here, so it is seated from that: the selection was
+            // made before it existed and raised no event it could hear. The note set is a
+            // HashSet, so passing the temporary selection along with it is what the
+            // selection event does too.
+            if (viewModel.NotePropertiesViewModel == null) {
+                var notePropertiesViewModel = new NotePropertiesViewModel();
+                if (pianoRoll != null && pianoRoll.ViewModel.NotesViewModel.Selection is { } selection) {
+                    notePropertiesViewModel.LoadPart(pianoRoll.ViewModel.NotesViewModel.Part);
+                    notePropertiesViewModel.SelectNotes(selection, selection.TempSelectedNotes);
+                }
+                viewModel.NotePropertiesViewModel = notePropertiesViewModel;
+            }
+            viewModel.IsNotePropertiesPanelOpen = true;
+        }
+
+        void OnToggleNotePropertiesPanel(object sender, RoutedEventArgs args) {
+            ToggleNotePropertiesPanel();
+        }
+
+        void OnCloseNotePropertiesPanel(object sender, RoutedEventArgs args) {
+            viewModel.IsNotePropertiesPanelOpen = false;
+        }
+
         // Built once and kept, because SingersViewModel has no teardown, so
         // rebuilding it would leak a set of subscriptions.
         async Task EnsureSingersViewModelAsync() {
@@ -792,6 +826,20 @@ namespace OpenUtau.App.Views {
                     setup.Position = setup.Position.WithY(0);
                 }
             }
+        }
+
+        void OnToggleRenderPanel(object sender, RoutedEventArgs args) {
+            if (viewModel.IsRenderPanelOpen) {
+                viewModel.IsRenderPanelOpen = false;
+                return;
+            }
+            EnsurePreferencesPanel();
+            viewModel.PreferencesViewModel!.OnPanelShown();
+            viewModel.IsRenderPanelOpen = true;
+        }
+
+        void OnCloseRenderPanel(object sender, RoutedEventArgs args) {
+            viewModel.IsRenderPanelOpen = false;
         }
 
         void OnTogglePreferencesPanel(object sender, RoutedEventArgs args) {

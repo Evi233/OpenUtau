@@ -141,9 +141,9 @@ namespace OpenUtau.App.ViewModels {
 
         public void RefreshSelectionStyle() {
             HeaderBorderBrush = IsSelected
-                ? TrackAccentColor
+                ? ThemeManager.AccentBrush1
                 : ThemeManager.NeutralAccentBrushSemi;
-            StripBrush = IsSelected ? TrackAccentColor : Brushes.Transparent;
+            StripBrush = IsSelected ? ThemeManager.AccentBrush1 : Brushes.Transparent;
             StripIconBrush = IsSelected ? Brushes.White : ThemeManager.ForegroundBrush;
         }
 

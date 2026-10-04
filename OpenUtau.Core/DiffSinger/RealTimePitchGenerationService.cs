@@ -50,6 +50,13 @@ namespace OpenUtau.Core.DiffSinger {
         static bool IsEnabled => ActiveMode != LivePitchMode.Off;
 
         static RealtimePitchSettings GetSettings() => ActiveMode switch {
+            LivePitchMode.Quality => new RealtimePitchSettings {
+                PitchSteps = 4,
+                DebounceMs = 500,
+                LyricFallbackMs = 1200,
+                AfterPhonemizeMs = 500,
+                FastRealtime = false,
+            },
             LivePitchMode.Normal => new RealtimePitchSettings {
                 PitchSteps = 2,
                 DebounceMs = 200,
@@ -75,6 +82,9 @@ namespace OpenUtau.Core.DiffSinger {
 
         public void OnNext(UCommand cmd, bool isUndo) {
             if (isUndo || SuppressCallbacks || !IsEnabled) {
+                return;
+            }
+            if (cmd is NoteCommand editedNote && !IsDiffSingerPart(editedNote.Part)) {
                 return;
             }
             var settings = GetSettings();
@@ -189,10 +199,14 @@ namespace OpenUtau.Core.DiffSinger {
             if (part == null || part.trackNo < 0 || part.trackNo >= DocManager.Inst.Project.tracks.Count) {
                 return false;
             }
-            var renderer = DocManager.Inst.Project.tracks[part.trackNo].RendererSettings.Renderer;
+            var track = DocManager.Inst.Project.tracks[part.trackNo];
+            var renderer = track.RendererSettings.Renderer;
             return renderer != null
                 && renderer.SupportsRenderPitch
-                && renderer.SingerType == USingerType.DiffSinger;
+                && renderer.SingerType == USingerType.DiffSinger
+                && track.Singer is DiffSingerSinger singer
+                && singer.Found
+                && singer.HasPitchPredictor;
         }
     }
 }

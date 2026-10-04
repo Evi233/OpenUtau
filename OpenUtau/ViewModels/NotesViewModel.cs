@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -60,14 +60,10 @@ namespace OpenUtau.App.ViewModels {
         [Reactive] public partial bool ShowVibrato { get; set; }
         [Reactive] public partial bool ShowPitch { get; set; }
         [Reactive] public partial bool ShowFinalPitch { get; set; }
-        [Reactive] public partial bool LivePitchNormal { get; set; }
-        [Reactive] public partial bool LivePitchFast { get; set; }
         [Reactive] public partial bool MergeNearbyPhrases { get; set; }
         [Reactive] public partial bool IsDiffSinger { get; set; }
-        bool livePitchSyncing;
         [Reactive] public partial bool ShowWaveform { get; set; }
         [Reactive] public partial bool ShowPhoneme { get; set; }
-        [Reactive] public partial bool ShowNoteParams { get; set; }
         [Reactive] public partial bool ShowExpressions { get; set; }
         [Reactive] public partial bool IsSnapOn { get; set; }
         [Reactive] public partial string SnapDivText { get; set; }
@@ -232,29 +228,6 @@ namespace OpenUtau.App.ViewModels {
                  Preferences.Default.PlayTone = playTone;
                  Preferences.Save();
              });
-            ApplyLivePitchModeFromPreferences();
-            this.WhenAnyValue(x => x.LivePitchNormal)
-                .Subscribe(checkedNormal => {
-                    if (livePitchSyncing) {
-                        return;
-                    }
-                    if (checkedNormal) {
-                        SetLivePitchMode(LivePitchMode.Normal);
-                    } else if (Preferences.Default.RealTimePitchMode == (int)LivePitchMode.Normal) {
-                        SetLivePitchMode(LivePitchMode.Off);
-                    }
-                });
-            this.WhenAnyValue(x => x.LivePitchFast)
-                .Subscribe(checkedFast => {
-                    if (livePitchSyncing) {
-                        return;
-                    }
-                    if (checkedFast) {
-                        SetLivePitchMode(LivePitchMode.Fast);
-                    } else if (Preferences.Default.RealTimePitchMode == (int)LivePitchMode.Fast) {
-                        SetLivePitchMode(LivePitchMode.Off);
-                    }
-                });
             MergeNearbyPhrases = Preferences.Default.DiffSingerMergeNearbyPhrases;
             this.WhenAnyValue(x => x.MergeNearbyPhrases)
                 .Subscribe(merge => {
@@ -309,12 +282,6 @@ namespace OpenUtau.App.ViewModels {
                 ExpHeightMax = showExpressions
                     ? ViewConstants.ExpHeightMax : 0;
                 Preferences.Default.ShowExpressions = showExpressions;
-                Preferences.Save();
-            });
-            ShowNoteParams = Preferences.Default.ShowNoteParams;
-            this.WhenAnyValue(x => x.ShowNoteParams)
-            .Subscribe(showNoteParams => {
-                Preferences.Default.ShowNoteParams = showNoteParams;
                 Preferences.Save();
             });
             ShowPlaybackNoteHighlight = Preferences.Default.ShowPlaybackNoteHighlight;
@@ -1328,21 +1295,5 @@ namespace OpenUtau.App.ViewModels {
             return 0;
         }
 
-        void ApplyLivePitchModeFromPreferences() {
-            livePitchSyncing = true;
-            var mode = (LivePitchMode)Preferences.Default.RealTimePitchMode;
-            LivePitchNormal = mode == LivePitchMode.Normal;
-            LivePitchFast = mode == LivePitchMode.Fast;
-            livePitchSyncing = false;
-        }
-
-        void SetLivePitchMode(LivePitchMode mode) {
-            livePitchSyncing = true;
-            LivePitchNormal = mode == LivePitchMode.Normal;
-            LivePitchFast = mode == LivePitchMode.Fast;
-            Preferences.Default.RealTimePitchMode = (int)mode;
-            Preferences.Save();
-            livePitchSyncing = false;
-        }
     }
 }

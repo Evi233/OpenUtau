@@ -195,6 +195,93 @@ namespace OpenUtau.UiTest {
             });
         }
 
+        [Fact]
+        public void RenderPanelTogglesAndSharesPreferences() {
+            WithMainWindow(nameof(RenderPanelTogglesAndSharesPreferences), window => {
+                var viewModel = ViewModelOf(window);
+                var button = window.FindControl<ToggleButton>("RenderButton");
+                Assert.NotNull(button);
+                Assert.False(viewModel.IsRenderPanelOpen);
+
+                Click(window, button!);
+                Assert.True(viewModel.IsRenderPanelOpen);
+                Assert.True(button!.IsChecked);
+                window.MouseMove(new Point(600, 400));
+                HeadlessUi.Flush();
+                var icon = button.GetVisualDescendants().OfType<Avalonia.Controls.Shapes.Path>().Single();
+                Assert.Equal(OpenUtau.App.ThemeManager.AccentBrush1.ToString(), icon.Stroke!.ToString());
+                var panel = window.GetVisualDescendants().OfType<RenderPreferencesPanel>().Single();
+                AssertHasSize(panel);
+                Assert.Same(viewModel.PreferencesViewModel, panel.DataContext);
+                foreach (var key in new[] { "prefs.rendering", "prefs.utau", "prefs.diffsinger" }) {
+                    Assert.Contains(panel.GetVisualDescendants().OfType<TextBlock>(),
+                        text => text.Text == OpenUtau.App.ThemeManager.GetString(key));
+                }
+                AssertRendered(window);
+                HeadlessUi.SaveScreenshot(window, nameof(RenderPanelTogglesAndSharesPreferences) + "-open");
+
+                Click(window, button);
+                Assert.False(viewModel.IsRenderPanelOpen);
+                Assert.False(panel.IsEffectivelyVisible);
+                HeadlessUi.Flush();
+                Assert.NotEqual(OpenUtau.App.ThemeManager.AccentBrush1.ToString(), icon.Stroke!.ToString());
+                Click(window, window.FindControl<ToggleButton>("PreferencesButton")!);
+                var preferences = window.GetVisualDescendants().OfType<PreferencesPanel>().Single();
+                Assert.Same(panel.DataContext, preferences.DataContext);
+                foreach (var key in new[] { "prefs.rendering", "prefs.utau", "prefs.diffsinger" }) {
+                    Assert.DoesNotContain(preferences.GetVisualDescendants().OfType<TextBlock>(),
+                        text => text.Text == OpenUtau.App.ThemeManager.GetString(key));
+                }
+            });
+        }
+
+        [Fact]
+        public void DiffSingerPresetsApplyAndCustomSettingsExpand() {
+            WithMainWindow(nameof(DiffSingerPresetsApplyAndCustomSettingsExpand), window => {
+                Click(window, window.FindControl<ToggleButton>("RenderButton")!);
+                var vm = ViewModelOf(window).PreferencesViewModel!;
+                var panel = window.GetVisualDescendants().OfType<RenderPreferencesPanel>().Single();
+                var selector = panel.FindControl<ComboBox>("DiffSingerPresetSelector")!;
+                var custom = panel.FindControl<StackPanel>("DiffSingerCustomSettings")!;
+                int original = vm.DiffSingerPreset;
+                try {
+                    foreach (var (preset, acoustic, variance, pitch, live) in new[] {
+                        (1, 50, 50, 20, LivePitchMode.Quality),
+                        (2, 10, 10, 5, LivePitchMode.Fast),
+                        (0, 20, 20, 10, LivePitchMode.Normal),
+                    }) {
+                        selector.SelectedIndex = preset;
+                        HeadlessUi.Flush();
+                        Assert.False(custom.IsEffectivelyVisible);
+                        Assert.True(panel.FindControl<ComboBox>("DiffSingerOnnxRunner")!.IsEffectivelyVisible);
+                        Assert.True(panel.FindControl<ComboBox>("DiffSingerGameBackend")!.IsEffectivelyVisible);
+                        Preferences.Default.SkipRenderingMutedTracks = false;
+                        Assert.True(Preferences.Default.SkipRenderingMutedTracks);
+                        Assert.Equal(acoustic, Preferences.Default.DiffSingerSteps);
+                        Assert.Equal(variance, Preferences.Default.DiffSingerStepsVariance);
+                        Assert.Equal(pitch, Preferences.Default.DiffSingerStepsPitch);
+                        Assert.Equal((int)live, Preferences.Default.RealTimePitchMode);
+                        Preferences.Default.MigrateRealTimePitchMode();
+                        Assert.Equal((int)live, Preferences.Default.RealTimePitchMode);
+                    }
+                    selector.SelectedIndex = 3;
+                    HeadlessUi.Flush();
+                    Assert.True(custom.IsEffectivelyVisible);
+                    vm.DiffSingerSteps = 100;
+                    vm.DiffSingerStepsVariance = 50;
+                    vm.DiffSingerStepsPitch = 20;
+                    vm.LivePitchModeIndex = 1;
+                    Preferences.Default.MigrateRealTimePitchMode();
+                    Assert.Equal(100, Preferences.Default.DiffSingerSteps);
+                    Assert.Equal(50, Preferences.Default.DiffSingerStepsVariance);
+                    Assert.Equal(20, Preferences.Default.DiffSingerStepsPitch);
+                    Assert.Equal((int)LivePitchMode.Fast, Preferences.Default.RealTimePitchMode);
+                } finally {
+                    vm.DiffSingerPreset = original;
+                }
+            });
+        }
+
         // The voice panel shares the right-hand dock with the settings panel; it is opened
         // from its own button and does not close the other one.
         [Fact]
@@ -281,6 +368,62 @@ namespace OpenUtau.UiTest {
                 Assert.True(voice.HasSinger);
                 Assert.Same(singers[0], voice.Singer);
             }));
+        }
+
+        // The note properties panel shares the dock with the voice and settings panels, and is
+        // built the first time it is opened. So, like the voice panel, it has to be seated on
+        // what is already selected: the notes the piano roll has selected in the part it has
+        // open, which the selection event it never heard cannot tell it.
+        [Fact]
+        public void NotePropertiesPanelOpensOnTheSelectedNotes() {
+            WithMainWindow(nameof(NotePropertiesPanelOpensOnTheSelectedNotes), window => {
+                Click(window, FindButtonWithText(window, "welcome.new"));
+                var viewModel = ViewModelOf(window);
+                Assert.Null(viewModel.NotePropertiesViewModel);
+
+                var project = DocManager.Inst.Project;
+                var part = new UVoicePart { trackNo = 0, position = 0 };
+                // CreateNote is what gives a note its two pitch points, which validation
+                // reads: a bare UNote has an empty curve and would throw on the first flush.
+                var note = project.CreateNote(60, 0, 480);
+                note.lyric = "a";
+                part.notes.Add(note);
+                DocManager.Inst.StartUndoGroup("command.part.add");
+                DocManager.Inst.ExecuteCmd(new AddPartCommand(project, part));
+                DocManager.Inst.EndUndoGroup();
+                HeadlessUi.Flush();
+
+                // Open the part in the piano roll the way the arrangement does, by double
+                // clicking it. Two clicks with no Flush between them are one double click.
+                var partsCanvas = window.FindControl<PartsCanvas>("partsCanvas")!;
+                // The template project already has a part on track 0; this is the one just added.
+                var partControl = partsCanvas.Children.OfType<PartControl>().Single(c => c.part == part);
+                var point = partControl.TranslatePoint(
+                    new Point(partControl.Bounds.Width / 2, partControl.Bounds.Height / 2), window)!.Value;
+                window.MouseDown(point, MouseButton.Left, RawInputModifiers.None);
+                window.MouseUp(point, MouseButton.Left, RawInputModifiers.None);
+                window.MouseDown(point, MouseButton.Left, RawInputModifiers.None);
+                window.MouseUp(point, MouseButton.Left, RawInputModifiers.None);
+                HeadlessUi.Flush();
+                HeadlessUi.Flush();
+                Assert.True(viewModel.ShowPianoRoll);
+
+                var notesViewModel = window.GetVisualDescendants().OfType<PianoRoll>().Single().ViewModel.NotesViewModel;
+                notesViewModel.Selection.Select(note);
+
+                Click(window, window.FindControl<ToggleButton>("NotePropertiesButton")!);
+                Assert.True(viewModel.IsNotePropertiesPanelOpen);
+                var noteProperties = viewModel.NotePropertiesViewModel;
+                Assert.NotNull(noteProperties);
+                Assert.Same(part, noteProperties!.Part);
+                Assert.True(noteProperties.IsNoteSelected);
+                Assert.Equal("a", noteProperties.Lyric);
+                AssertHasSize(window.GetVisualDescendants().OfType<NotePropertiesControl>().Single());
+
+                // And it edits the notes it was seated on.
+                noteProperties.SetNoteParams("Lyric", "ka");
+                Assert.Equal("ka", note.lyric);
+            });
         }
 
         // "What does this engine support" is the whole point of the parameter list: a Classic

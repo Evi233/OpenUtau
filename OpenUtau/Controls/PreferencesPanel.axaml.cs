@@ -96,41 +96,6 @@ namespace OpenUtau.App.Controls {
             LoadingWindow.EndLoading();
         }
 
-        void ResetVLabelerPath(object sender, RoutedEventArgs e) {
-            viewModel!.SetVLabelerPath(string.Empty);
-        }
-
-        async void SelectVLabelerPath(object sender, RoutedEventArgs e) {
-            if (HostWindow is not { } window) {
-                return;
-            }
-            var type = OS.IsWindows() ? FilePicker.EXE : OS.IsMacOS() ? FilePicker.APP : FilePickerFileTypes.All;
-            var path = await FilePicker.OpenFile(window, "prefs.advanced.vlabelerpath", type);
-            if (string.IsNullOrEmpty(path)) {
-                return;
-            }
-            if (OS.AppExists(path)) {
-                viewModel!.SetVLabelerPath(path);
-            }
-        }
-
-        void ResetSetParamPath(object sender, RoutedEventArgs e) {
-            viewModel!.SetSetParamPath(string.Empty);
-        }
-
-        async void SelectSetParamPath(object sender, RoutedEventArgs e) {
-            if (HostWindow is not { } window) {
-                return;
-            }
-            var path = await FilePicker.OpenFile(window, "prefs.otoeditor.setparampath", FilePicker.EXE);
-            if (string.IsNullOrEmpty(path)) {
-                return;
-            }
-            if (File.Exists(path)) {
-                viewModel!.SetSetParamPath(path);
-            }
-        }
-
         void ResetWinePath(object sender, RoutedEventArgs e) {
             viewModel!.SetWinePath(string.Empty);
         }

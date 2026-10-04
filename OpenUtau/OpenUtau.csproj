@@ -1,4 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <InternalsVisibleTo Include="OpenUtau.UiTest" />
+  </ItemGroup>
   <PropertyGroup Condition=" '$(OS)' == 'Windows_NT' ">
     <TargetFramework>net10.0-windows</TargetFramework>
   </PropertyGroup>

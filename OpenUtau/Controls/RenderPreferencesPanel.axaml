@@ -1,0 +1,146 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:OpenUtau.App.ViewModels"
+             mc:Ignorable="d" d:DesignWidth="340" d:DesignHeight="700"
+             x:Class="OpenUtau.App.Controls.RenderPreferencesPanel"
+             x:DataType="vm:PreferencesViewModel">
+  <UserControl.Resources>
+    <vm:CultureNameConverter x:Key="cultureNameConverter"/>
+  </UserControl.Resources>
+  <UserControl.Styles>
+    <Style Selector="StackPanel">
+      <Setter Property="Spacing" Value="4"/>
+    </Style>
+    <Style Selector="TextBlock">
+      <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="ComboBox">
+      <Setter Property="HorizontalAlignment" Value="Stretch"/>
+    </Style>
+    <Style Selector="Button">
+      <Setter Property="MinWidth" Value="50"/>
+    </Style>
+    <Style Selector="TextBlock.restart">
+      <Setter Property="Text" Value="{DynamicResource prefs.note.restart}"/>
+      <Setter Property="FontSize" Value="11"/>
+      <Setter Property="TextWrapping" Value="Wrap"/>
+      <Setter Property="Margin" Value="4,0"/>
+    </Style>
+    <Style Selector="ToggleSwitch">
+      <Setter Property="OnContent" Value="{DynamicResource button.on}"/>
+      <Setter Property="OffContent" Value="{DynamicResource button.off}"/>
+      <Setter Property="HorizontalAlignment" Value="Right"/>
+    </Style>
+    <!--Section heading: a rule under the title, as in the panel mockup.-->
+    <Style Selector="Border.section">
+      <Setter Property="BorderThickness" Value="0,0,0,1"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource SystemControlForegroundBaseMediumBrush}"/>
+      <Setter Property="Margin" Value="0,16,0,8"/>
+      <Setter Property="Padding" Value="0,0,0,4"/>
+    </Style>
+    <Style Selector="Border.section > TextBlock">
+      <Setter Property="FontSize" Value="14"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+    </Style>
+  </UserControl.Styles>
+
+  <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+    <StackPanel Margin="10">
+      <!-- Rendering -->
+      <Border Classes="section"><TextBlock Text="{DynamicResource prefs.rendering}"/></Border>
+      <StackPanel>
+        <Grid>
+          <TextBlock Text="{DynamicResource prefs.rendering.prerender}" HorizontalAlignment="Left"/>
+          <ToggleSwitch IsChecked="{Binding PreRender}"/>
+        </Grid>
+        <Grid ColumnDefinitions="Auto,8,16,8,*">
+          <TextBlock Grid.Column="0" Text="{DynamicResource prefs.rendering.threads.numthreads}"/>
+          <TextBlock Grid.Column="2">
+            <TextBlock.Text>
+              <MultiBinding StringFormat="{}{0:#0}">
+                <Binding Path="NumRenderThreads"/>
+              </MultiBinding>
+            </TextBlock.Text>
+          </TextBlock>
+          <Slider Grid.Column="4" Classes="fader" Value="{Binding NumRenderThreads}" Minimum="1" Maximum="{Binding LogicalCoreCount, Mode=OneTime}"
+                  TickPlacement="BottomRight" TickFrequency="1" IsSnapToTickEnabled="true"/>
+        </Grid>
+        <TextBlock TextWrapping="Wrap" Text="{DynamicResource prefs.rendering.threads.cpuwarn}" FontWeight="Bold"
+                    Foreground="Red" Margin="0,0,0,4" IsVisible="{Binding HighThreads}" FontSize="11"/>
+        <TextBlock Classes="restart"/>
+        <Grid>
+          <TextBlock Text="{DynamicResource prefs.cache.clearonquit}" HorizontalAlignment="Left" />
+          <ToggleSwitch IsChecked="{Binding ClearCacheOnQuit}" />
+        </Grid>
+        <TextBlock Text="{DynamicResource prefs.rendering.mergephrases}" Margin="0,10,0,0"/>
+        <ComboBox ItemsSource="{Binding MergePhrasesSecs}" SelectedIndex="{Binding MergePhrasesSecIndex}"/>
+      </StackPanel>
+
+      <!-- UTAU -->
+      <Border Classes="section"><TextBlock Text="{DynamicResource prefs.utau}"/></Border>
+      <StackPanel>
+        <TextBlock Text="{DynamicResource prefs.rendering.defaultrenderer}" Margin="0,10,0,0"/>
+        <ComboBox ItemsSource="{Binding DefaultRendererOptions}" SelectedItem="{Binding DefaultRenderer}"/>
+      </StackPanel>
+
+      <!-- DiffSinger -->
+      <Border Classes="section"><TextBlock Text="{DynamicResource prefs.diffsinger}"/></Border>
+      <TextBlock Text="{DynamicResource prefs.rendering.onnxrunner}" Margin="0,10,0,0"/>
+      <ComboBox x:Name="DiffSingerOnnxRunner" ItemsSource="{Binding OnnxRunnerOptions}" SelectedItem="{Binding OnnxRunner}"/>
+      <StackPanel IsVisible="{Binding ShowOnnxGpu}">
+        <TextBlock Text="{DynamicResource prefs.rendering.onnxgpu}" Margin="0,10,0,0"/>
+        <ComboBox ItemsSource="{Binding OnnxGpuOptions}" SelectedItem="{Binding OnnxGpu}"/>
+        <TextBlock Classes="restart"/>
+      </StackPanel>
+      <TextBlock Text="{DynamicResource prefs.rendering.gamebackend}" Margin="0,10,0,0"/>
+      <ComboBox x:Name="DiffSingerGameBackend" ItemsSource="{Binding GameBackendOptions}" SelectedItem="{Binding GameBackend}"/>
+      <ComboBox x:Name="DiffSingerPresetSelector" SelectedIndex="{Binding DiffSingerPreset}">
+        <ComboBoxItem Content="默认选项"/>
+        <ComboBoxItem Content="最高质量"/>
+        <ComboBoxItem Content="最高性能"/>
+        <ComboBoxItem Content="自定义"/>
+      </ComboBox>
+      <StackPanel x:Name="DiffSingerCustomSettings" IsVisible="{Binding IsDiffSingerCustom}">
+        <TextBlock Text="{DynamicResource prefs.rendering.diffsingersteps}" Margin="0,10,0,0"/>
+        <ComboBox HorizontalAlignment="Stretch"  ItemsSource="{Binding DiffSingerStepsOptions}" SelectedItem="{Binding DiffSingerSteps}"/>
+        <TextBlock Text="{DynamicResource prefs.rendering.diffsingerstepsvariance}" Margin="0,10,0,0"/>
+        <ComboBox HorizontalAlignment="Stretch"  ItemsSource="{Binding DiffSingerStepsVarianceOptions}" SelectedItem="{Binding DiffSingerStepsVariance}"/>
+        <TextBlock Text="{DynamicResource prefs.rendering.diffsingerstepspitch}" Margin="0,10,0,0"/>
+        <ComboBox HorizontalAlignment="Stretch"  ItemsSource="{Binding DiffSingerStepsPitchOptions}" SelectedItem="{Binding DiffSingerStepsPitch}"/>
+        <TextBlock Text="Live Pitch" Margin="0,10,0,0"/>
+        <ComboBox SelectedIndex="{Binding LivePitchModeIndex}">
+          <ComboBoxItem Content="Normal"/>
+          <ComboBoxItem Content="Fast"/>
+          <ComboBoxItem Content="最高质量"/>
+        </ComboBox>
+        <Grid ColumnDefinitions="Auto,8,40,8,*" Margin="0,10,0,0">
+            <TextBlock Grid.Column="0" Text="{DynamicResource prefs.rendering.diffsingerdepth}"/>
+            <TextBlock Grid.Column="2">
+                <TextBlock.Text>
+                    <MultiBinding StringFormat="{}{0:#0}%">
+                        <Binding Path="DiffSingerDepth"/>
+                    </MultiBinding>
+                </TextBlock.Text>
+            </TextBlock>
+            <Slider Grid.Column="4" Classes="fader" Value="{Binding DiffSingerDepth}" Minimum="0" Maximum="100"
+                    TickPlacement="BottomRight" TickFrequency="1" IsSnapToTickEnabled="true"/>
+        </Grid>
+        <Grid Margin="0,5,0,0">
+          <TextBlock Text="{DynamicResource prefs.cache.diffsingertensorcache}" HorizontalAlignment="Left" />
+          <ToggleSwitch IsChecked="{Binding DiffSingerTensorCache}" />
+        </Grid>
+        <Grid Margin="0,5,0,0">
+          <TextBlock Text="{DynamicResource prefs.rendering.diffsingervariancelocalpitchpatch}" HorizontalAlignment="Left" />
+          <ToggleSwitch IsChecked="{Binding DiffSingerVarianceLocalPitchPatch}" IsEnabled="{Binding DiffSingerTensorCache}" />
+        </Grid>
+        <Grid Margin="0,5,0,0">
+          <TextBlock Text="{DynamicResource prefs.appearance.diffsingerlangcodehide}" HorizontalAlignment="Left" />
+          <ToggleSwitch IsChecked="{Binding DiffSingerLangCodeHide}" />
+        </Grid>
+      </StackPanel>
+
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

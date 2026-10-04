@@ -38,6 +38,7 @@
       <Setter Property="Padding" Value="0,0,0,4"/>
     </Style>
     <Style Selector="Border.section > TextBlock">
+      <Setter Property="Foreground" Value="{DynamicResource AccentBrush1}"/>
       <Setter Property="FontSize" Value="14"/>
       <Setter Property="FontWeight" Value="SemiBold"/>
     </Style>

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
@@ -189,6 +189,7 @@ namespace OpenUtau.Core.Util {
             /// </summary>
             public string GameBackend = "onnx";
             public double DiffSingerDepth = 1.0;
+            public int DiffSingerPreset = 0;
             public int DiffSingerSteps = 20;
             public int DiffSingerStepsVariance = 20;
             public int DiffSingerStepsPitch = 10;
@@ -202,7 +203,7 @@ namespace OpenUtau.Core.Util {
             /// </summary>
             public bool DiffSingerMergeNearbyPhrases = false;
             public bool Metronome = false;
-            public bool SkipRenderingMutedTracks = false;
+            public bool SkipRenderingMutedTracks { get => true; set { } }
             public string Language = string.Empty;
             public string? SortingOrder = null;
             public List<string> RecentFiles = new List<string>();
@@ -236,7 +237,7 @@ namespace OpenUtau.Core.Util {
             public bool PlayTone = true;
             /// <summary>Legacy; migrated to <see cref="RealTimePitchMode"/> on load.</summary>
             public bool RealTimePitchGeneration = false;
-            public int RealTimePitchMode = (int)LivePitchMode.Off;
+            public int RealTimePitchMode = (int)LivePitchMode.Normal;
             public bool ShowVibrato = true;
             public bool ShowPitch = true;
             public bool ShowFinalPitch = true;
@@ -244,7 +245,6 @@ namespace OpenUtau.Core.Util {
             public bool ShowPhoneme = true;
             public bool ShowExpressions = true;
             public bool ShowPhonemizerTags = true;
-            public bool ShowNoteParams = true;
             public Dictionary<string, string> DefaultResamplers = new Dictionary<string, string>();
             public Dictionary<string, string> DefaultWavtools = new Dictionary<string, string>();
             public string LyricHelper = string.Empty;
@@ -332,13 +332,38 @@ namespace OpenUtau.Core.Util {
             public bool? PreferPortAudio = false;
 
             public void MigrateRealTimePitchMode() {
-                if (RealTimePitchGeneration && RealTimePitchMode == (int)LivePitchMode.Off) {
+                RealTimePitchGeneration = false;
+                if (DiffSingerPreset < 0 || DiffSingerPreset > 3) {
+                    DiffSingerPreset = 3;
+                }
+                ApplyDiffSingerPreset();
+                if (RealTimePitchMode < (int)LivePitchMode.Normal
+                    || RealTimePitchMode > (int)LivePitchMode.Quality) {
                     RealTimePitchMode = (int)LivePitchMode.Normal;
                 }
-                RealTimePitchGeneration = false;
-                if (RealTimePitchMode < (int)LivePitchMode.Off
-                    || RealTimePitchMode > (int)LivePitchMode.Fast) {
-                    RealTimePitchMode = (int)LivePitchMode.Off;
+            }
+
+            public void ApplyDiffSingerPreset() {
+                switch (DiffSingerPreset) {
+                    case 0:
+                        DiffSingerSteps = 20;
+                        DiffSingerStepsVariance = 20;
+                        DiffSingerStepsPitch = 10;
+                        RealTimePitchMode = (int)LivePitchMode.Normal;
+                        break;
+                    case 1:
+                        DiffSingerSteps = 50;
+                        DiffSingerStepsVariance = 50;
+                        DiffSingerStepsPitch = 20;
+                        RealTimePitchMode = (int)LivePitchMode.Quality;
+                        DiffSingerTensorCache = true;
+                        break;
+                    case 2:
+                        DiffSingerSteps = 10;
+                        DiffSingerStepsVariance = 10;
+                        DiffSingerStepsPitch = 5;
+                        RealTimePitchMode = (int)LivePitchMode.Fast;
+                        break;
                 }
             }
         }

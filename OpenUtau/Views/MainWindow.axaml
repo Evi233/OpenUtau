@@ -1,4 +1,4 @@
-﻿<Window xmlns="https://github.com/avaloniaui"
+<Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -13,12 +13,28 @@
         Focusable="True" KeyDown="OnKeyDown" PointerPressed="OnPointerPressed" Closing="WindowClosing"
         DragDrop.AllowDrop="True" TransparencyLevelHint="None">
   <Window.Styles>
+    <Style Selector="ToggleButton.dockButton Path">
+      <Setter Property="Width" Value="24"/>
+      <Setter Property="Height" Value="24"/>
+      <Setter Property="Stretch" Value="Uniform"/>
+      <Setter Property="Fill" Value="Transparent"/>
+      <Setter Property="Stroke" Value="{DynamicResource SystemControlForegroundBaseHighBrush}"/>
+      <Setter Property="StrokeThickness" Value="1.8"/>
+      <Setter Property="StrokeLineCap" Value="Round"/>
+      <Setter Property="StrokeJoin" Value="Round"/>
+    </Style>
+    <Style Selector="ToggleButton.dockButton:checked Path">
+      <Setter Property="Stroke" Value="{DynamicResource AccentBrush1}"/>
+    </Style>
+    <Style Selector="ToggleButton.dockButton:checked /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource AccentBrush1Semi}"/>
+    </Style>
     <Style Selector="Button,ToggleButton">
       <Setter Property="Focusable" Value="False"/>
     </Style>
   </Window.Styles>
   <Grid>
-    <Grid Name="MainGrid" Margin="{Binding $parent[Window].WindowDecorationMargin}" ColumnDefinitions="*,Auto,Auto,Auto">
+    <Grid Name="MainGrid" Margin="{Binding $parent[Window].WindowDecorationMargin}" ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto">
       <Menu Grid.Row="0" Grid.Column="0" VerticalAlignment="Top" HorizontalAlignment="Left" Height="24"
                 Opened="OnMainMenuOpened" Closed="OnMainMenuClosed" PointerExited="OnMainMenuPointerLeave"
                 ZIndex="1">
@@ -309,11 +325,6 @@
                   PointerMoved="TimelinePointerMoved"
                   PointerReleased="TimelinePointerReleased"
                   DoubleTapped="TimelineDoubleTapped">
-            <Path Name="PlayPos"
-                  Canvas.Left="{Binding TracksViewModel.PlayPosX}"
-                  Canvas.Top="0" ZIndex="100" IsHitTestVisible="False"
-                  Fill="{DynamicResource NeutralAccentBrushSemi}"
-                  Data="M -6.5 0 L 6.5 0 L 6.5 3 L 0 9 L -6.5 3 Z"/>
             <Canvas.ContextMenu>
               <ContextMenu Name="TimelineContextMenu" ItemsSource="{Binding TimelineContextMenuItems}">
                 <ContextMenu.Styles>
@@ -375,6 +386,16 @@
               </TextBlock>
             </Grid>
           </Border>
+          <!-- The playhead rides above the ruler, and so above the time signature and tempo that
+               share its corner, which are still what takes the click here: this layer is not hit
+               test visible, so pointer events fall through to the pill underneath. -->
+          <Canvas Grid.Row="1" Grid.Column="1" ClipToBounds="True" IsHitTestVisible="False">
+            <Path Name="PlayPos"
+                  Canvas.Left="{Binding TracksViewModel.PlayPosX}"
+                  Canvas.Top="0"
+                  Fill="{DynamicResource NeutralAccentBrushSemi}"
+                  Data="M -6.5 0 L 6.5 0 L 6.5 3 L 0 9 L -6.5 3 Z"/>
+          </Canvas>
           <c:PartsCanvas x:Name="partsCanvas" Grid.Row="2" Grid.Column="1" ClipToBounds="True" Background="Transparent"
                         DataContext="{Binding TracksViewModel}"
                         TickWidth="{Binding TickWidth}"
@@ -545,35 +566,125 @@
           </Border>
         </Grid>
       </Border>
+      <!--Note properties, opened from the note properties button in the function bar. It edits
+          whichever notes the piano roll has selected, so it follows the note selection rather
+          than the part that happens to be open.-->
+      <Border Grid.Row="0" Grid.Column="3" Width="400"
+              IsVisible="{Binding IsNotePropertiesPanelOpen}"
+              Background="{DynamicResource SystemControlBackgroundAltHighBrush}"
+              BorderBrush="{DynamicResource SystemControlForegroundBaseMediumBrush}"
+              BorderThickness="1,0,0,0">
+        <Grid RowDefinitions="Auto,*">
+          <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" Height="32" Margin="10,0">
+            <Path Grid.Column="0" Height="16" Width="16" VerticalAlignment="Center"
+                  Data="M12,3V13.55C11.41,13.21 10.73,13 10,13A4,4 0 0,0 6,17A4,4 0 0,0 10,21A4,4 0 0,0 14,17V7H18V3H12Z"
+                  Fill="{StaticResource NeutralAccentBrush}"/>
+            <TextBlock Grid.Column="1" Margin="8,0,0,0" VerticalAlignment="Center"
+                       FontSize="14" FontWeight="SemiBold"
+                       Text="{DynamicResource noteproperty}"/>
+            <Button Grid.Column="2" Classes="clear" Width="24" Height="24" Margin="0" Padding="0"
+                    HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                    Click="OnCloseNotePropertiesPanel">
+              <Path Height="16" Width="16"
+                    Stroke="{StaticResource NeutralAccentBrush}" StrokeThickness="1.6"
+                    StrokeLineCap="Round" StrokeJoin="Round"
+                    Data="M10 3.5 L5.5 8 L10 12.5"/>
+            </Button>
+          </Grid>
+          <Border Grid.Row="1" BorderBrush="{DynamicResource SystemControlForegroundBaseMediumBrush}"
+                  BorderThickness="0,1,0,0">
+            <!-- Through a ContentControl so the panel is only realized once the
+                 view model exists, and so it is seated before it is built. -->
+            <ContentControl Content="{Binding NotePropertiesViewModel}">
+              <ContentControl.ContentTemplate>
+                <DataTemplate x:DataType="vm:NotePropertiesViewModel">
+                  <c:NotePropertiesControl/>
+                </DataTemplate>
+              </ContentControl.ContentTemplate>
+            </ContentControl>
+          </Border>
+        </Grid>
+      </Border>
+      <Border Grid.Row="0" Grid.Column="4" Width="340"
+              IsVisible="{Binding IsRenderPanelOpen}"
+              Background="{DynamicResource SystemControlBackgroundAltHighBrush}"
+              BorderBrush="{DynamicResource SystemControlForegroundBaseMediumBrush}"
+              BorderThickness="1,0,0,0">
+        <Grid RowDefinitions="Auto,*">
+          <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" Height="32" Margin="10,0">
+            <Path Grid.Column="0" Height="16" Width="16" VerticalAlignment="Center"
+                  Data="M2,5H23V17H18V20H7V17H2V5Z M4,7V15H21V7H4Z M9,8A3,3 0 1,0 9,14A3,3 0 1,0 9,8Z M17,8A3,3 0 1,0 17,14A3,3 0 1,0 17,8Z M0,3H2V20H0V3Z"
+                  Fill="{StaticResource NeutralAccentBrush}"/>
+            <TextBlock Grid.Column="1" Margin="8,0,0,0" VerticalAlignment="Center"
+                       FontSize="14" FontWeight="SemiBold"
+                       Text="{DynamicResource prefs.rendering}"/>
+            <Button Grid.Column="2" Classes="clear" Width="24" Height="24" Margin="0" Padding="0"
+                    HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                    Click="OnCloseRenderPanel">
+              <Path Height="16" Width="16"
+                    Stroke="{StaticResource NeutralAccentBrush}" StrokeThickness="1.6"
+                    StrokeLineCap="Round" StrokeJoin="Round"
+                    Data="M10 3.5 L5.5 8 L10 12.5"/>
+            </Button>
+          </Grid>
+          <Border Grid.Row="1" BorderBrush="{DynamicResource SystemControlForegroundBaseMediumBrush}"
+                  BorderThickness="0,1,0,0">
+            <!-- Through a ContentControl so the panel is only realized once the
+                 view model exists: its compiled bindings would otherwise run
+                 against this window's DataContext while it is being attached. -->
+            <ContentControl Content="{Binding PreferencesViewModel}">
+              <ContentControl.ContentTemplate>
+                <DataTemplate x:DataType="vm:PreferencesViewModel">
+                  <c:RenderPreferencesPanel/>
+                </DataTemplate>
+              </ContentControl.ContentTemplate>
+            </ContentControl>
+          </Border>
+        </Grid>
+      </Border>
       <!--Function bar, pinned to the right edge of the window so it stays put
           no matter which page the carousel shows. More entries can be appended
           to this StackPanel as they are added.-->
-      <Border Grid.Row="0" Grid.Column="3" Width="32"
+      <Border Grid.Row="0" Grid.Column="5" Width="48"
               Background="{DynamicResource SystemControlBackgroundBaseLowBrush}"
               BorderBrush="{DynamicResource SystemControlForegroundBaseMediumBrush}"
               BorderThickness="1,0,0,0">
         <StackPanel Orientation="Vertical" Margin="0,4">
-          <ToggleButton x:Name="PreferencesButton" Classes="normal" Background="Transparent"
-                        Width="26" Height="26" Margin="2" Padding="0"
+          <ToggleButton x:Name="PreferencesButton" Classes="normal dockButton" Background="Transparent"
+                        Width="38" Height="38" Margin="2" Padding="0"
                         HorizontalAlignment="Center" VerticalAlignment="Center"
                         HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
                         IsChecked="{Binding IsPreferencesPanelOpen, Mode=OneWay}"
                         Click="OnTogglePreferencesPanel"
                         ToolTip.Tip="{DynamicResource menu.tools.prefs}">
-            <Path Height="18" Width="18"
-                  Data="M9.001425 11.34a2.35 2.35 0 0 1-2.34-2.34 2.35 2.35 0 0 1 2.34-2.34 2.35 2.35 0 0 1 2.35 2.34 2.35 2.35 0 0 1-2.35 2.35m4.98-1.7a5.2 5.2 0 0 0 0-1.32l1.41-1.1c.13-.1.16-.27.08-.42l-1.34-2.32a.33.33 0 0 0-.4-.15l-1.67.67a4.86 4.86 0 0 0-1.14-.65l-.25-1.78a.34.34 0 0 0-.33-.28h-2.68c-.17 0-.3.12-.33.28l-.25 1.78c-.42.16-.79.4-1.14.65l-1.66-.67a.33.33 0 0 0-.41.15l-1.34 2.32a.33.33 0 0 0 .08.43l1.41 1.09a5.73 5.73 0 0 0 0 1.32l-1.41 1.11a.33.33 0 0 0-.08.43l1.34 2.32c.08.15.26.2.4 0.15l1.67-.68c.35.27.71.5 1.14.66l.25 1.78c.02.16.16.28.33.28h2.68c.17 0 .3-.12.33-.28l.25-1.78c.42-.17.79-.4 1.14-.66l1.66.68c.15.05.33 0 .41-.15l1.34-2.32a.34.34 0 0 0-.08-.43l-1.41-1.1z"
-                  Fill="{StaticResource NeutralAccentBrush}"/>
+            <Path Data="M9,3H15L15.7,5.6L18,7L20.6,6.3L23,10.5L21,12.4V15L23,16.8L20.6,21L18,20.3L15.7,21.6L15,24H9L8.3,21.6L6,20.3L3.4,21L1,16.8L3,15V12.4L1,10.5L3.4,6.3L6,7L8.3,5.6Z M16,13.5A4,4 0 1,0 8,13.5A4,4 0 1,0 16,13.5Z"/>
           </ToggleButton>
-          <ToggleButton x:Name="VoiceButton" Classes="normal" Background="Transparent"
-                        Width="26" Height="26" Margin="2" Padding="0"
+          <ToggleButton x:Name="RenderButton" Classes="normal dockButton" Background="Transparent"
+                        Width="38" Height="38" Margin="2" Padding="0"
+                        HorizontalAlignment="Center" VerticalAlignment="Center"
+                        HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                        IsChecked="{Binding IsRenderPanelOpen, Mode=OneWay}"
+                        Click="OnToggleRenderPanel"
+                        ToolTip.Tip="{DynamicResource prefs.rendering}">
+            <Path Data="M3,6H22V17H3Z M1,3H3V21 M7,17V20H17V17 M11,11.5A2.5,2.5 0 1,0 6,11.5A2.5,2.5 0 1,0 11,11.5Z M19,11.5A2.5,2.5 0 1,0 14,11.5A2.5,2.5 0 1,0 19,11.5Z"/>
+          </ToggleButton>
+          <ToggleButton x:Name="VoiceButton" Classes="normal dockButton" Background="Transparent"
+                        Width="38" Height="38" Margin="2" Padding="0"
                         HorizontalAlignment="Center" VerticalAlignment="Center"
                         HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
                         IsChecked="{Binding IsVoicePanelOpen, Mode=OneWay}"
                         Click="OnToggleVoicePanel"
                         ToolTip.Tip="{DynamicResource tracks.voice}">
-            <Path Height="18" Width="18"
-                  Data="M12,2A3,3 0 0,1 15,5V11A3,3 0 0,1 9,11V5A3,3 0 0,1 12,2M19,11C19,14.53 16.39,17.44 13,17.93V21H11V17.93C7.61,17.44 5,14.53 5,11H7A5,5 0 0,0 12,16A5,5 0 0,0 17,11H19Z"
-                  Fill="{StaticResource NeutralAccentBrush}"/>
+            <Path Data="M9,5A3,3 0 0,1 15,5V11A3,3 0 0,1 9,11Z M5,10V11A7,7 0 0,0 19,11V10 M12,18V22 M8,22H16"/>
+          </ToggleButton>
+          <ToggleButton x:Name="NotePropertiesButton" Classes="normal dockButton" Background="Transparent"
+                        Width="38" Height="38" Margin="2" Padding="0"
+                        HorizontalAlignment="Center" VerticalAlignment="Center"
+                        HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                        IsChecked="{Binding IsNotePropertiesPanelOpen, Mode=OneWay}"
+                        Click="OnToggleNotePropertiesPanel"
+                        ToolTip.Tip="{DynamicResource noteproperty}">
+            <Path Data="M14,17V3H20V7H14 M14,17A4,3 0 1,0 6,17A4,3 0 1,0 14,17Z"/>
           </ToggleButton>
         </StackPanel>
       </Border>

@@ -370,6 +370,10 @@ namespace OpenUtau.App.Controls {
             }
         }
 
+        void OnToggleNoteProperties(object sender, RoutedEventArgs args) {
+            MainWindow?.ToggleNotePropertiesPanel();
+        }
+
         // Edit Tools
 
         private CancellationTokenSource? _longPressCts;
@@ -1708,7 +1712,9 @@ namespace OpenUtau.App.Controls {
                     break;
                 case Key.OemPipe:
                     if (isNone) {
-                        notesVm.ShowNoteParams = !notesVm.ShowNoteParams;
+                        // The panel lives in the main window's dock now; this key is still the
+                        // shortcut for it.
+                        MainWindow?.ToggleNotePropertiesPanel();
                         return true;
                     }
                     break;

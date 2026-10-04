@@ -15,11 +15,12 @@ using SharpCompress;
 
 namespace OpenUtau.App.Controls {
     public partial class NotePropertiesControl : UserControl, ICmdSubscriber {
-        private readonly NotePropertiesViewModel ViewModel;
+        // The view model comes from the DataContext, because the panel is built and seated by
+        // the main window before this control is realized.
+        private NotePropertiesViewModel ViewModel => (NotePropertiesViewModel)DataContext!;
 
         public NotePropertiesControl() {
             InitializeComponent();
-            DataContext = ViewModel = new NotePropertiesViewModel();
 
 foreach (var box in this.GetLogicalDescendants().OfType<TextBox>()) {
                   box.AddHandler(GotFocusEvent, OnTextBoxGotFocus);
@@ -30,15 +31,25 @@ foreach (var box in this.GetLogicalDescendants().OfType<TextBox>()) {
                   slider.AddHandler(PointerReleasedEvent, SliderPointerReleased, RoutingStrategies.Tunnel);
                   slider.AddHandler(PointerMovedEvent, SliderPointerMoved, RoutingStrategies.Tunnel);
               }
-          
+
             MessageBus.Current.Listen<PianorollRefreshEvent>()
                 .Subscribe(e => {
-                    if(e.refreshItem == "Part") {
-                        LoadPart(ViewModel.Part);
+                    if(e.refreshItem == "Part" && DataContext is NotePropertiesViewModel vm) {
+                        LoadPart(vm.Part);
                     }
                 });
 
             DocManager.Inst.AddSubscriber(this);
+        }
+
+        protected override void OnDataContextChanged(EventArgs e) {
+            base.OnDataContextChanged(e);
+            // The view model may already hold a part and a selection: the panel is seated
+            // before this control exists, so the expression rows have to be built from it
+            // here rather than waiting for the next notification.
+            if (DataContext is NotePropertiesViewModel) {
+                LoadPart(ViewModel.Part);
+            }
         }
 
         private void LoadPart(UPart? part) {
@@ -154,6 +165,9 @@ foreach (var box in this.GetLogicalDescendants().OfType<TextBox>()) {
         }
 
         public void OnNext(UCommand cmd, bool isUndo) {
+            if (DataContext is not NotePropertiesViewModel) {
+                return;
+            }
             if (cmd is UNotification notif) {
                 if (cmd is LoadPartNotification) {
                     LoadPart(notif.part);

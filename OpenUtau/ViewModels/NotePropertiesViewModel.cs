@@ -140,22 +140,30 @@ namespace OpenUtau.App.ViewModels {
                 DocManager.Inst.EndUndoGroup();
             });
 
-            SubscribeExtensions.Subscribe(MessageBus.Current.Listen<NotesSelectionEvent>(), e => {
-                if (PanelControlPressed) {
-                    PanelControlPressed = false;
-                    DocManager.Inst.EndUndoGroup();
-                }
-                NoteLoading = true;
-
-                selectedNotes.Clear();
-                selectedNotes.UnionWith(e.selectedNotes);
-                selectedNotes.UnionWith(e.tempSelectedNotes);
-                OnSelectNotes();
-
-                NoteLoading = false;
-            });
+            SubscribeExtensions.Subscribe(MessageBus.Current.Listen<NotesSelectionEvent>(),
+                e => SelectNotes(e.selectedNotes, e.tempSelectedNotes));
 
             DocManager.Inst.AddSubscriber(this);
+        }
+
+        /// <summary>
+        /// Points the panel at a selection. Called from the selection event, and once by the
+        /// main window when the panel is opened, because the panel is built on first use and
+        /// the selection made before that raised no event it could hear.
+        /// </summary>
+        public void SelectNotes(IEnumerable<UNote> notes, IEnumerable<UNote> tempNotes) {
+            if (PanelControlPressed) {
+                PanelControlPressed = false;
+                DocManager.Inst.EndUndoGroup();
+            }
+            NoteLoading = true;
+
+            selectedNotes.Clear();
+            selectedNotes.UnionWith(notes);
+            selectedNotes.UnionWith(tempNotes);
+            OnSelectNotes();
+
+            NoteLoading = false;
         }
 
         // note -> panel
