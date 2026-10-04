@@ -5,6 +5,7 @@ using System.Xml;
 using System.Xml.Serialization;
 using OpenUtau.Core.Format.MusicXMLSchema;
 using OpenUtau.Core.Ustx;
+using OpenUtau.Core.Util;
 using Serilog;
 using UtfUnknown;
 
@@ -157,7 +158,7 @@ namespace OpenUtau.Core.Format
                                             } else if (slurStatus == StartStopContinue.Continue || slurStatus == StartStopContinue.Stop) {
                                                 // OpenUtau uses +~ for extending the current syllable,
                                                 // which is represented in sheet music as slur.
-                                                unote.lyric = "+~";
+                                                unote.lyric = NoteLyricUtils.ExtensionLyricForWrite();
                                             }
                                             return unote;
                                         }

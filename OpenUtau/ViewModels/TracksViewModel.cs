@@ -320,6 +320,18 @@ namespace OpenUtau.App.ViewModels {
             MessageBus.Current.SendMessage(new TrackSelectionEvent(SelectedTracks.ToArray()));
         }
 
+        /// <summary>
+        /// The selection is never empty while the project has tracks, so whatever
+        /// reads it — the highlighted header, the singer panel — has a track to
+        /// work with from the moment one is entered. Does not notify: the callers
+        /// broadcast the selection themselves.
+        /// </summary>
+        public void SelectFirstTrackIfNoneSelected() {
+            if (SelectedTracks.Count == 0 && Tracks.Count > 0) {
+                SelectedTracks.Add(Tracks[0]);
+            }
+        }
+
         public void SelectTrack(UTrack track) {
             if (SelectedTracks.Count == 1 && SelectedTracks[0] == track) {
                 return;
@@ -331,6 +343,10 @@ namespace OpenUtau.App.ViewModels {
 
         public void ToggleSelectTrack(UTrack track) {
             if (SelectedTracks.Contains(track)) {
+                if (SelectedTracks.Count == 1) {
+                    // There is no "no track selected" state, so the last one stays.
+                    return;
+                }
                 SelectedTracks.Remove(track);
             } else {
                 SelectedTracks.Add(track);
@@ -529,6 +545,9 @@ namespace OpenUtau.App.ViewModels {
                     }
                 }
                 Notify();
+                // Removing a track (or undoing the addition of one) can take the
+                // selection with it.
+                SelectFirstTrackIfNoneSelected();
                 MessageBus.Current.SendMessage(new TracksRefreshEvent());
                 MessageBus.Current.SendMessage(new TrackSelectionEvent(SelectedTracks.ToArray()));
             } else if (cmd is UNotification) {
@@ -538,6 +557,8 @@ namespace OpenUtau.App.ViewModels {
                     Tracks.Clear();
                     Tracks.AddRange(loadProjectNotif.project.tracks);
                     SelectedTracks.Clear();
+                    // Entering a project starts on its first track.
+                    SelectFirstTrackIfNoneSelected();
                     PianoRollOpenPart = null;
                     MessageBus.Current.SendMessage(new TracksRefreshEvent());
                     MessageBus.Current.SendMessage(new TrackSelectionEvent(SelectedTracks.ToArray()));

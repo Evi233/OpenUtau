@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -7,14 +7,22 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using OpenUtau.App.ViewModels;
+using OpenUtau.App.Views;
 using OpenUtau.Colors;
 using OpenUtau.Core;
 
-namespace OpenUtau.App.Views {
-    public partial class PreferencesDialog : Window {
-        private PreferencesViewModel? viewModel => this.DataContext as PreferencesViewModel;   
+namespace OpenUtau.App.Controls {
+    /// <summary>
+    /// The settings UI, docked in the main window's right-hand panel. Everything
+    /// that needs a parent for a dialog resolves the host window from the tree,
+    /// so the panel stays host-agnostic.
+    /// </summary>
+    public partial class PreferencesPanel : UserControl {
+        private PreferencesViewModel? viewModel => this.DataContext as PreferencesViewModel;
 
-        public PreferencesDialog() {
+        private Window? HostWindow => TopLevel.GetTopLevel(this) as Window;
+
+        public PreferencesPanel() {
             InitializeComponent();
         }
 
@@ -64,7 +72,10 @@ namespace OpenUtau.App.Views {
         }
 
         async void SelectAddlSingersPath(object sender, RoutedEventArgs e) {
-            var path = await FilePicker.OpenFolderAboutSinger(this, "prefs.paths.addlsinger");
+            if (HostWindow is not { } window) {
+                return;
+            }
+            var path = await FilePicker.OpenFolderAboutSinger(window, "prefs.paths.addlsinger");
             if (string.IsNullOrEmpty(path)) {
                 return;
             }
@@ -74,7 +85,10 @@ namespace OpenUtau.App.Views {
         }
 
         async void ReloadSingers(object sender, RoutedEventArgs e) {
-            LoadingWindow.BeginLoading(this);
+            if (HostWindow is not { } window) {
+                return;
+            }
+            LoadingWindow.BeginLoading(window);
             await Task.Run(() => {
                 SingerManager.Inst.SearchAllSingers();
             });
@@ -87,8 +101,11 @@ namespace OpenUtau.App.Views {
         }
 
         async void SelectVLabelerPath(object sender, RoutedEventArgs e) {
+            if (HostWindow is not { } window) {
+                return;
+            }
             var type = OS.IsWindows() ? FilePicker.EXE : OS.IsMacOS() ? FilePicker.APP : FilePickerFileTypes.All;
-            var path = await FilePicker.OpenFile(this, "prefs.advanced.vlabelerpath", type);
+            var path = await FilePicker.OpenFile(window, "prefs.advanced.vlabelerpath", type);
             if (string.IsNullOrEmpty(path)) {
                 return;
             }
@@ -102,7 +119,10 @@ namespace OpenUtau.App.Views {
         }
 
         async void SelectSetParamPath(object sender, RoutedEventArgs e) {
-            var path = await FilePicker.OpenFile(this, "prefs.otoeditor.setparampath", FilePicker.EXE);
+            if (HostWindow is not { } window) {
+                return;
+            }
+            var path = await FilePicker.OpenFile(window, "prefs.otoeditor.setparampath", FilePicker.EXE);
             if (string.IsNullOrEmpty(path)) {
                 return;
             }
@@ -112,16 +132,19 @@ namespace OpenUtau.App.Views {
         }
 
         void ResetWinePath(object sender, RoutedEventArgs e) {
-            ((PreferencesViewModel)DataContext!).SetWinePath(string.Empty);
+            viewModel!.SetWinePath(string.Empty);
         }
 
         async void SelectWinePath(object sender, RoutedEventArgs e) {
-            var path = await FilePicker.OpenFile(this, "prefs.advanced.winepath", FilePicker.UnixExecutable);
+            if (HostWindow is not { } window) {
+                return;
+            }
+            var path = await FilePicker.OpenFile(window, "prefs.advanced.winepath", FilePicker.UnixExecutable);
             if (string.IsNullOrEmpty(path)) {
                 return;
             }
             if (File.Exists(path)) {
-                ((PreferencesViewModel)DataContext!).SetWinePath(path);
+                viewModel!.SetWinePath(path);
             }
         }
 
@@ -140,22 +163,25 @@ namespace OpenUtau.App.Views {
                 return;
             }
 
-            ((PreferencesViewModel)DataContext!).SetWinePath(winePath);
+            viewModel!.SetWinePath(winePath);
         }
 
         void OpenCustomThemeEditor(object sender, RoutedEventArgs e) {
-            if (CustomTheme.IsPackageTheme(viewModel!.ThemeName)) return;
-            ThemeEditorWindow.Show(CustomTheme.Themes[viewModel!.ThemeName]);
+            if (viewModel == null || CustomTheme.IsPackageTheme(viewModel.ThemeName)) return;
+            ThemeEditorWindow.Show(CustomTheme.Themes[viewModel.ThemeName]);
         }
 
         void OnCustomThemeCreate(object sender, RoutedEventArgs e) {
+            if (HostWindow is not { } window || viewModel == null) {
+                return;
+            }
             var dialog = new TypeInDialog {
                 Title = ThemeManager.GetString("prefs.appearance.customtheme.create.title")
             };
             dialog.SetPrompt(ThemeManager.GetString("prefs.appearance.customtheme.create.prompt"));
             dialog.onFinish = s => {
                 if (string.IsNullOrEmpty(s)) {
-                    MessageBox.ShowModal(this, 
+                    MessageBox.ShowModal(window,
                         ThemeManager.GetString("prefs.appearance.customtheme.create.empty"),
                         ThemeManager.GetString("prefs.appearance.customtheme.create.title"));
                     return;
@@ -168,23 +194,24 @@ namespace OpenUtau.App.Views {
 
                 File.WriteAllText(Path.Join(PathManager.Inst.ThemesPath, filename),
                     Yaml.DefaultSerializer.Serialize(themeYaml));
-                viewModel!.RefreshThemes();
+                viewModel.RefreshThemes();
             };
-            dialog.ShowDialog(this);
+            dialog.ShowDialog(window);
         }
 
         async void OnCustomThemeDelete(object sender, RoutedEventArgs e) {
-            if (CustomTheme.IsPackageTheme(viewModel!.ThemeName)) return;
+            if (HostWindow is not { } window || viewModel == null) return;
+            if (CustomTheme.IsPackageTheme(viewModel.ThemeName)) return;
             var result = await MessageBox.Show(
-                this,
+                window,
                 ThemeManager.GetString("prefs.appearance.customtheme.delete.message"),
                 ThemeManager.GetString("prefs.appearance.customtheme.delete.title"),
                 MessageBox.MessageBoxButtons.YesNo);
             if (result == MessageBox.MessageBoxResult.Yes) {
-                string previousTheme = viewModel!.ThemeItems.TakeWhile(x => x != viewModel!.ThemeName).LastOrDefault()!;
-                File.Delete(CustomTheme.Themes[viewModel!.ThemeName]);
-                viewModel!.RefreshThemes();
-                viewModel!.ThemeName = previousTheme;
+                string previousTheme = viewModel.ThemeItems.TakeWhile(x => x != viewModel.ThemeName).LastOrDefault()!;
+                File.Delete(CustomTheme.Themes[viewModel.ThemeName]);
+                viewModel.RefreshThemes();
+                viewModel.ThemeName = previousTheme;
             }
         }
     }

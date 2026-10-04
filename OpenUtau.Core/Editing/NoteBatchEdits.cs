@@ -5,6 +5,7 @@ using System.Threading;
 using OpenUtau.Core.Ustx;
 using OpenUtau.Core.Format;
 using OpenUtau.Core.DiffSinger;
+using OpenUtau.Core.Util;
 
 namespace OpenUtau.Core.Editing {
     public class AddTailNote : BatchEdit {
@@ -19,10 +20,13 @@ namespace OpenUtau.Core.Editing {
         }
 
         public void Run(UProject project, UVoicePart part, List<UNote> selectedNotes, DocManager docManager) {
+            // Resolved at run time, not at menu build time, so toggling the
+            // "-" preference does not require rebuilding the piano roll menus.
+            string writeLyric = NoteLyricUtils.TailLyricForWrite(lyric);
             List<UNote> toAdd = new List<UNote>();
             var notes = selectedNotes.Count > 0 ? selectedNotes : part.notes.ToList();
             foreach (var note in notes) {
-                if (note.lyric != lyric && (note.Next == null || note.Next.position > note.End + 120)) {
+                if (note.lyric != lyric && note.lyric != writeLyric && (note.Next == null || note.Next.position > note.End + 120)) {
                     var addNote = project.CreateNote(note.tone, note.End, 120);
                     foreach (var exp in note.phonemeExpressions.OrderBy(exp => exp.index)) {
                         addNote.SetExpression(project, project.tracks[part.trackNo], exp.abbr, new float?[] { exp.value });
@@ -35,7 +39,7 @@ namespace OpenUtau.Core.Editing {
             }
             docManager.StartUndoGroup("command.batch.note", true);
             foreach (var note in toAdd) {
-                note.lyric = lyric;
+                note.lyric = writeLyric;
                 docManager.ExecuteCmd(new AddNoteCommand(part, note));
             }
             docManager.EndUndoGroup();
@@ -54,7 +58,7 @@ namespace OpenUtau.Core.Editing {
         }
 
         bool NeedToBeRemoved(UNote note) {
-            return note.lyric == lyric
+            return (note.lyric == lyric || note.lyric == NoteLyricUtils.TailLyricForWrite(lyric))
                 && (note.Next == null || note.Next.position > note.End);
         }
 

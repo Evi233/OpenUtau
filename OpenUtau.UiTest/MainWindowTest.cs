@@ -1,10 +1,11 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
 using Avalonia.Input;
 using Avalonia.VisualTree;
@@ -13,6 +14,7 @@ using OpenUtau.App.ViewModels;
 using OpenUtau.App.Views;
 using OpenUtau.Classic;
 using OpenUtau.Core;
+using OpenUtau.Core.DiffSinger;
 using OpenUtau.Core.Ustx;
 using OpenUtau.Core.Util;
 using Xunit;
@@ -47,6 +49,11 @@ namespace OpenUtau.UiTest {
             HeadlessUi.Run(() => {
                 InitCore();
                 HeadlessUi.Errors.Clear();
+                // One project is shared by the whole run, and "New Project" asks to save the
+                // current one first when it has unsaved changes. A test that leaves changes
+                // behind would therefore leave the next one's new-project button showing a save
+                // dialog, which headless never answers. Start every test from a clean project.
+                DocManager.Inst.ExecuteCmd(new LoadProjectNotification(OpenUtau.Core.Format.Ustx.Create()));
                 var window = new MainWindow { Width = 1280, Height = 800 };
                 try {
                     window.Show();
@@ -76,6 +83,13 @@ namespace OpenUtau.UiTest {
         }
 
         static void Click(Window window, Control target) {
+            // A tooltip left open by an earlier hover is an overlay above the window, and a click
+            // aimed at the control underneath it lands on the tooltip instead.
+            foreach (var control in window.GetVisualDescendants().OfType<Control>()) {
+                if (ToolTip.GetIsOpen(control)) {
+                    ToolTip.SetIsOpen(control, false);
+                }
+            }
             var center = target.TranslatePoint(new Point(target.Bounds.Width / 2, target.Bounds.Height / 2), window);
             Assert.NotNull(center);
             window.MouseDown(center.Value, MouseButton.Left);
@@ -121,6 +135,161 @@ namespace OpenUtau.UiTest {
                 AssertHasSize(window.FindControl<Control>("partsCanvas"));
                 AssertRendered(window);
             });
+        }
+
+        // A project always has a track selected: entering one picks the first, and
+        // neither deselecting the last track nor deleting it can empty the selection.
+        [Fact]
+        public void ProjectKeepsATrackSelected() {
+            WithMainWindow(nameof(ProjectKeepsATrackSelected), window => {
+                Click(window, FindButtonWithText(window, "welcome.new"));
+                var tracks = ViewModelOf(window).TracksViewModel;
+                Assert.Same(tracks.Tracks[0], Assert.Single(tracks.SelectedTracks));
+
+                // Command-clicking the only selected header again would toggle it off.
+                tracks.ToggleSelectTrack(tracks.Tracks[0]);
+                Assert.Same(tracks.Tracks[0], Assert.Single(tracks.SelectedTracks));
+
+                // Deleting the selected track hands the selection to the one left.
+                var project = DocManager.Inst.Project;
+                var first = tracks.Tracks[0];
+                DocManager.Inst.StartUndoGroup("command.track.add");
+                DocManager.Inst.ExecuteCmd(new AddTrackCommand(project, new UTrack(project) { TrackNo = 1 }));
+                DocManager.Inst.EndUndoGroup();
+                Assert.Equal(2, tracks.Tracks.Count);
+                DocManager.Inst.StartUndoGroup("command.track.delete");
+                DocManager.Inst.ExecuteCmd(new RemoveTrackCommand(project, first));
+                DocManager.Inst.EndUndoGroup();
+                Assert.Same(tracks.Tracks[0], Assert.Single(tracks.SelectedTracks));
+            });
+        }
+
+        // The settings live in a docked panel opened from the gear in the right-hand
+        // function bar; the gear toggles it and the panel only exists while open.
+        [Fact]
+        public void PreferencesPanelToggles() {
+            WithMainWindow(nameof(PreferencesPanelToggles), window => {
+                var viewModel = ViewModelOf(window);
+                var gear = window.FindControl<ToggleButton>("PreferencesButton");
+                Assert.NotNull(gear);
+                Assert.False(viewModel.IsPreferencesPanelOpen);
+
+                Click(window, gear!);
+                Assert.True(viewModel.IsPreferencesPanelOpen);
+                Assert.Same(gear, window.FindControl<ToggleButton>("PreferencesButton"));
+                Assert.True(gear!.IsChecked);
+                var panel = window.GetVisualDescendants().OfType<PreferencesPanel>().Single();
+                AssertHasSize(panel);
+                // The panel's sections are populated from the view model.
+                Assert.NotNull(viewModel.PreferencesViewModel);
+                Assert.Contains(window.GetVisualDescendants().OfType<Border>(), b => b.Classes.Contains("section"));
+                AssertRendered(window);
+                // The window's own screenshot is taken after the test, when the panel is
+                // closed again, so keep one of the open panel for layout review.
+                HeadlessUi.SaveScreenshot(window, nameof(PreferencesPanelToggles) + "-open");
+
+                Click(window, gear);
+                Assert.False(viewModel.IsPreferencesPanelOpen);
+                Assert.False(panel.IsEffectivelyVisible);
+            });
+        }
+
+        // The voice panel shares the right-hand dock with the settings panel; it is opened
+        // from its own button and does not close the other one.
+        [Fact]
+        public void VoicePanelToggles() {
+            WithMainWindow(nameof(VoicePanelToggles), window => {
+                var viewModel = ViewModelOf(window);
+                var voice = window.FindControl<ToggleButton>("VoiceButton");
+                Assert.NotNull(voice);
+                Assert.False(viewModel.IsVoicePanelOpen);
+
+                Click(window, voice!);
+                Assert.True(viewModel.IsVoicePanelOpen);
+                Assert.NotNull(viewModel.VoiceViewModel);
+                var panel = window.GetVisualDescendants().OfType<TrackVoicePanel>().Single();
+                AssertHasSize(panel);
+                Assert.True(voice!.IsChecked);
+
+                // Both panels can be open at once.
+                Click(window, window.FindControl<ToggleButton>("PreferencesButton")!);
+                Assert.True(viewModel.IsPreferencesPanelOpen);
+                Assert.True(panel.IsEffectivelyVisible);
+                AssertRendered(window);
+                HeadlessUi.SaveScreenshot(window, nameof(VoicePanelToggles) + "-both");
+
+                Click(window, voice);
+                Assert.False(viewModel.IsVoicePanelOpen);
+                Assert.False(panel.IsEffectivelyVisible);
+            });
+        }
+
+        // The panel edits whichever track is selected, so changing the selection retargets it.
+        [Fact]
+        public void VoicePanelFollowsTheSelectedTrack() {
+            WithMainWindow(nameof(VoicePanelFollowsTheSelectedTrack), window => {
+                Click(window, FindButtonWithText(window, "welcome.new"));
+                Click(window, window.FindControl<ToggleButton>("VoiceButton")!);
+                var tracks = ViewModelOf(window).TracksViewModel;
+                var voice = ViewModelOf(window).VoiceViewModel;
+                Assert.NotNull(voice);
+                Assert.Same(tracks.Tracks[0], voice!.Track);
+
+                // A track added from anywhere else is a TrackCommand, which the panel listens for.
+                var project = DocManager.Inst.Project;
+                DocManager.Inst.StartUndoGroup("command.track.add");
+                DocManager.Inst.ExecuteCmd(new AddTrackCommand(project, new UTrack(project) { TrackNo = 1 }));
+                DocManager.Inst.EndUndoGroup();
+                HeadlessUi.Flush();
+
+                tracks.SelectTrack(tracks.Tracks[1]);
+                HeadlessUi.Flush();
+                Assert.Same(tracks.Tracks[1], voice.Track);
+                Assert.Same(tracks.Tracks[1], Assert.Single(tracks.SelectedTracks));
+
+                tracks.SelectTrack(tracks.Tracks[0]);
+                HeadlessUi.Flush();
+                Assert.Same(tracks.Tracks[0], voice.Track);
+            });
+        }
+
+        // "What does this engine support" is the whole point of the parameter list: a Classic
+        // track offers the classic renderer's parameters, and the ones it cannot use are absent.
+        [Fact]
+        public void VoicePanelShowsTheEnginesParameters() {
+            WithMainWindow(nameof(VoicePanelShowsTheEnginesParameters), window => WithFakeSingers(3, Array.Empty<int>(), Array.Empty<int>(), singers => {
+                Click(window, FindButtonWithText(window, "welcome.new"));
+                Click(window, window.FindControl<ToggleButton>("VoiceButton")!);
+                var voice = ViewModelOf(window).VoiceViewModel;
+                Assert.NotNull(voice);
+                // No singer and no renderer yet, so there is nothing the track can be asked for.
+                Assert.Empty(voice!.Parameters);
+
+                voice.Singer = singers[0];
+                HeadlessUi.Flush();
+                Assert.True(voice.HasParameters);
+                Assert.Contains(voice.Parameters, row => row.Abbr == "vel");
+                // The voice color is not a value a whole track can be pinned to.
+                Assert.DoesNotContain(voice.Parameters, row => row.Abbr == "clr");
+                HeadlessUi.SaveScreenshot(window, nameof(VoicePanelShowsTheEnginesParameters) + "-parameters");
+            }));
+        }
+
+        // The language list is derived from the DiffSinger phonemizers' own language codes, which
+        // are not the same as their tags.
+        [Fact]
+        public void DiffSingerPhonemizersMapToTheirLanguages() {
+            InitCore();
+            Assert.IsType<DiffSingerEnglishPhonemizer>(PhonemizerChoices.ForLanguage("en")!.Create());
+            Assert.IsType<DiffSingerKoreanPhonemizer>(PhonemizerChoices.ForLanguage("ko")!.Create());
+            Assert.IsType<DiffSingerJyutpingPhonemizer>(PhonemizerChoices.ForLanguage("yue")!.Create());
+            Assert.Null(PhonemizerChoices.ForLanguage("no-such-language"));
+            // A voicebank's language code reaches the string table, which spells Cantonese its own way.
+            Assert.NotEqual("yue", PhonemizerChoices.LanguageName("yue"));
+            Assert.Contains(PhonemizerChoices.NonDiffSinger(),
+                factory => factory.type == typeof(OpenUtau.Core.DefaultPhonemizer));
+            Assert.DoesNotContain(PhonemizerChoices.NonDiffSinger(),
+                factory => PhonemizerChoices.IsDiffSinger(factory));
         }
 
         class FakeSinger : USinger {

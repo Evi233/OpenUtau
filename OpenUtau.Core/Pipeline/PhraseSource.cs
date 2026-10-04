@@ -37,7 +37,9 @@ namespace OpenUtau.Core.Pipeline {
             Duration = note.duration;
             End = note.End;
             ExtendedDuration = note.ExtendedDuration;
-            Lyric = note.lyric;
+            Lyric = extends != -1
+                ? NoteLyricUtils.CanonicalExtension(note.lyric)
+                : NoteLyricUtils.CanonicalTail(note.lyric);
             Tone = note.tone;
             Tuning = note.tuning;
             AdjustedTone = note.AdjustedTone;

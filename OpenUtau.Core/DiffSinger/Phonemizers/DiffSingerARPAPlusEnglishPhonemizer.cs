@@ -34,6 +34,8 @@ namespace OpenUtau.Core.DiffSinger {
                 return MakeSimpleResult("SP");
             }
             if (notes[0].lyric == "br") {
+                // DiffSinger dictionaries register the breath symbol as "AP", so
+                // the "br" lyric is an input alias and must keep resolving to it.
                 return MakeSimpleResult("AP");
             }
             if (!partResult.TryGetValue(notes[0].position, out var phonemes)) {

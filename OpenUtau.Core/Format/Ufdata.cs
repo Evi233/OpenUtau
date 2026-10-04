@@ -2,6 +2,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using OpenUtau.Core.Ustx;
+using OpenUtau.Core.Util;
 
 //reference: https://github.com/sdercolin/utaformatix-data/blob/main/lib/csharp/UtaFormatix.Data
 
@@ -101,10 +102,7 @@ namespace OpenUtau.Core.Format
                     ufNote.tickOn,
                     ufNote.tickOff - ufNote.tickOn
                 );
-                note.lyric = ufNote.lyric;
-                if (note.lyric == "-") {
-                    note.lyric = "+~";
-                }
+                note.lyric = NoteLyricUtils.FromImport(ufNote.lyric);
                 part.notes.Add(note);
             }
             part.Duration = ufTrack.notes[^1].tickOff;

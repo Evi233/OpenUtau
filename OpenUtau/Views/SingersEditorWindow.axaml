@@ -1,122 +1,17 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:system="clr-namespace:System;assembly=mscorlib"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:vm="using:OpenUtau.App.ViewModels"
         xmlns:c="clr-namespace:OpenUtau.App.Controls"
         x:DataType="vm:SingersViewModel"
-        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="640"
-        x:Class="OpenUtau.App.Views.SingersDialog"
+        mc:Ignorable="d" d:DesignWidth="900" d:DesignHeight="560"
+        x:Class="OpenUtau.App.Views.SingersEditorWindow"
         Icon="/Assets/open-utau.ico"
-        Title="{DynamicResource singers.caption}" Width="1050" MinWidth="1050" MinHeight="640"
+        Title="{DynamicResource singers.caption}" Width="900" MinWidth="720" MinHeight="560"
         WindowStartupLocation="CenterScreen" KeyDown="OnKeyDown">
-  <Design.DataContext>
-    <vm:SingersViewModel/>
-  </Design.DataContext>
   <Grid Margin="{Binding $parent[Window].WindowDecorationMargin}">
-    <Grid.RowDefinitions>
-      <RowDefinition Height="140" MinHeight="140"/>
-      <RowDefinition Height="10"/>
-      <RowDefinition Height="*" MinHeight="460"/>
-      <RowDefinition Height="10"/>
-    </Grid.RowDefinitions>
-    <Grid.ColumnDefinitions>
-      <ColumnDefinition Width="1*" MinWidth="555"/>
-      <ColumnDefinition Width="10"/>
-      <ColumnDefinition Width="1*" MinWidth="300"/>
-    </Grid.ColumnDefinitions>
-    <Image Grid.Row="0" Width="100" Height="100" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="10,10,0,0" Source="{Binding Avatar}"/>
-    <ComboBox Grid.Row="0" x:Name="name" HorizontalAlignment="Stretch" Margin="120,10,0,0" VerticalAlignment="Top"
-              ItemsSource="{Binding Singers}" SelectedItem="{Binding Singer}" SelectionChanged="OnSelectedSingerChanged">
-      <ComboBox.ItemTemplate>
-        <DataTemplate>
-          <TextBlock Text="{Binding LocalizedName}"/>
-        </DataTemplate>
-      </ComboBox.ItemTemplate>    
-    </ComboBox>
-    <Border Grid.Row="0" Margin="120,40,0,30">
-      <ScrollViewer>
-        <TextBlock x:Name="info" TextWrapping="Wrap" Text="{Binding Info}"/>
-      </ScrollViewer>
-    </Border>
-    <DataGrid Grid.Row="0" Grid.Column="2" Margin="0,10,10,30" CanUserSortColumns="False" BorderThickness="1"
-              BorderBrush="{DynamicResource SystemControlHighlightBaseMediumHighBrush}"
-              ItemsSource="{Binding Subbanks}" IsReadOnly="True">
-      <DataGrid.Columns>
-        <DataGridTextColumn Header="{StaticResource oto.prefix}" Binding="{Binding Prefix}"/>
-        <DataGridTextColumn Header="{StaticResource oto.suffix}" Binding="{Binding Suffix}"/>
-        <DataGridTextColumn Header="{StaticResource singers.subbanks.toneranges}" Binding="{Binding ToneRangesString}"/>
-        <DataGridTextColumn Header="{StaticResource singers.subbanks.color}" Binding="{Binding Color}"/>
-      </DataGrid.Columns>
-    </DataGrid>
-    <StackPanel Grid.Row="0" Spacing="5" Margin="10,0,0,0" Height="20"
-                Orientation="Horizontal" HorizontalAlignment="Stretch" VerticalAlignment="Bottom">
-      <Button Content="{DynamicResource singers.location}" Margin="0" Width="100"
-              IsEnabled="{Binding Singer, Converter={x:Static ObjectConverters.IsNotNull}}" Command="{Binding OpenLocation}"/>
-      <Button Margin="0" Padding="0"
-              IsEnabled="{Binding Singer, Converter={x:Static ObjectConverters.IsNotNull}}"
-              Click="OnSingerMenuButton">
-        <Path Classes="clear"
-              Data="M12,15.5A3.5,3.5 0 0,1 8.5,12A3.5,3.5 0 0,1 12,8.5A3.5,3.5 0 0,1 15.5,12A3.5,3.5 0 0,1 12,15.5M19.43,12.97C19.47,12.65 19.5,12.33 19.5,12C19.5,11.67 19.47,11.34 19.43,11L21.54,9.37C21.73,9.22 21.78,8.95 21.66,8.73L19.66,5.27C19.54,5.05 19.27,4.96 19.05,5.05L16.56,6.05C16.04,5.66 15.5,5.32 14.87,5.07L14.5,2.42C14.46,2.18 14.25,2 14,2H10C9.75,2 9.54,2.18 9.5,2.42L9.13,5.07C8.5,5.32 7.96,5.66 7.44,6.05L4.95,5.05C4.73,4.96 4.46,5.05 4.34,5.27L2.34,8.73C2.21,8.95 2.27,9.22 2.46,9.37L4.57,11C4.53,11.34 4.5,11.67 4.5,12C4.5,12.33 4.53,12.65 4.57,12.97L2.46,14.63C2.27,14.78 2.21,15.05 2.34,15.27L4.34,18.73C4.46,18.95 4.73,19.03 4.95,18.95L7.44,17.94C7.96,18.34 8.5,18.68 9.13,18.93L9.5,21.58C9.54,21.82 9.75,22 10,22H14C14.25,22 14.46,21.82 14.5,21.58L14.87,18.93C15.5,18.67 16.04,18.34 16.56,17.94L19.05,18.95C19.27,19.03 19.54,18.95 19.66,18.73L21.66,15.27C21.78,15.05 21.73,14.78 21.54,14.63L19.43,12.97Z"
-              Fill="{DynamicResource SystemControlForegroundBaseHighBrush}">
-          <Path.RenderTransform>
-            <TransformGroup>
-              <ScaleTransform ScaleX=".67" ScaleY=".67"/>
-              <TranslateTransform X="-1" Y="-1"/>
-            </TransformGroup>
-          </Path.RenderTransform>
-        </Path>
-        <Button.ContextMenu>
-          <ContextMenu Name="SingerMenu" Placement="Bottom">
-            <MenuItem Header="{DynamicResource singers.visitwebsite}" Click="OnVisitWebsite" IsEnabled="{Binding HasWebsite}"/>
-            <MenuItem Header="{DynamicResource singers.setimage}" Click="OnSetImage"/>
-            <MenuItem Header="{DynamicResource singers.setportrait}" Click="OnSetPortrait"/>
-            <MenuItem Header="{DynamicResource tracks.searchterms.edit}" Click="OnEditSearchTerms"/>
-            <MenuItem Header="{DynamicResource singers.setencoding}" ItemsSource="{Binding SetEncodingMenuItems}" Classes="MenuItemWithSubMenu"/>
-            <MenuItem Header="{DynamicResource singers.setsingertype}" ItemsSource="{Binding SetSingerTypeMenuItems}" Classes="MenuItemWithSubMenu"/>
-            <MenuItem Header="{DynamicResource singers.setdefaultphonemizer}" ItemsSource="{Binding SetDefaultPhonemizerMenuItems}" Classes="MenuItemWithSubMenu"/>
-            <MenuItem Header="{DynamicResource singers.usefilename}" IsVisible="{Binding IsClassic}" Click="OnSetUseFilenameAsAlias">
-              <MenuItem.Icon>
-                <CheckBox Classes="menu" IsChecked="{Binding UseFilenameAsAlias}" />
-              </MenuItem.Icon>
-            </MenuItem>
-            <MenuItem Header="{DynamicResource singers.publish}" Click="OnPublish"/>
-            <MenuItem Header="{DynamicResource singers.merge}" IsVisible="{Binding IsClassic}" Click="OnMerge"/>
-            <MenuItem Header="{DynamicResource singers.errorreport}" Command="{Binding ErrorReport}"/>
-            <MenuItem Header="{DynamicResource singers.refresh}" Command="{Binding Refresh}"/>
-          </ContextMenu>
-        </Button.ContextMenu>
-      </Button>
-      <TextBox Text="{Binding SearchAlias}" PlaceholderText="{DynamicResource singers.editoto.searchalias}" Margin="0"
-               MinWidth="160" HorizontalAlignment="Stretch" Focusable="True" IsVisible="{Binding UseSearchAlias}" />
-    </StackPanel>
-    <StackPanel Grid.Row="0" Spacing="5" Margin="0,0,0,0" Height="20"
-            Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Bottom">
-      <Button Margin="0" Content="{DynamicResource singers.readme}" Click="OnOpenReadme"/>
-      <Button Margin="0" Content="{DynamicResource singers.playsample}" Click="OnPlayCharacterSample"/>
-    </StackPanel>
-    <StackPanel Grid.Row="0" Grid.Column="2" Spacing="5" Margin="0" Height="20"
-                Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Bottom">
-      <Button Margin="0" Content="{DynamicResource singers.editoto.reset}" Command="{Binding RefreshSinger}"
-              IsVisible="{Binding IsClassic}" IsEnabled="{Binding Singer.OtoDirty}"/>
-      <Button Margin="0" Content="{DynamicResource singers.editoto.save}" Command="{Binding SaveOtos}"
-              IsVisible="{Binding IsClassic}" IsEnabled="{Binding Singer.OtoDirty}"/>
-      <Button Margin="0" Content="{DynamicResource singers.editoto.editinvlabeler}"
-              IsVisible="{Binding IsClassic}" Click="OnEditInVLabeler"/>
-      <!-- <Button Margin="0" Content="{DynamicResource singers.editoto.editinsetparam}"
-              IsVisible="{Binding IsClassic}" Click="OnEditInSetParam"/>-->
-    </StackPanel>
-    <StackPanel Grid.Row="0" Grid.Column="2" Spacing="10" Margin="0,0,10,0" Height="20"
-                Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Bottom">
-      <Button Margin="0" Content="{DynamicResource singers.subbanks.edit}" Click="OnEditSubbanksButton"
-              IsEnabled="{Binding Singer, Converter={x:Static ObjectConverters.IsNotNull}}"/>
-    </StackPanel>
-
-
-    <GridSplitter Grid.Row="1" Grid.ColumnSpan="3" Height="10"
-                  Background="{DynamicResource SystemControlBackgroundAltHighBrush}"/>
-    <TabControl Name="Tabs" Grid.Row="2" Grid.ColumnSpan="3" Margin="10,0" Padding="0">
+    <TabControl Name="Tabs" Margin="10" Padding="0">
       <TabControl.Styles>
         <Style Selector="TabItem">
           <Setter Property="FontSize" Value="13"/>
@@ -127,6 +22,7 @@
       <TabItem Name="OtoTab" Header="{DynamicResource singers.oto}">
         <Grid Margin="0,6,0,0">
           <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*" MinHeight="120"/>
             <RowDefinition Height="10"/>
             <RowDefinition Height="240" MinHeight="240"/>
@@ -135,7 +31,19 @@
             <RowDefinition Height="4"/>
             <RowDefinition Height="18"/>
           </Grid.RowDefinitions>
-          <DataGrid Name="OtoGrid" Grid.Row="0" Margin="0" CanUserResizeColumns="True" BorderThickness="1"
+          <!-- The oto toolbar: these act on the table and the plot below, so they
+               belong here rather than in the management panel. -->
+          <StackPanel Grid.Row="0" Margin="0,0,0,6" Orientation="Horizontal" Spacing="5">
+            <Button Margin="0" Content="{DynamicResource singers.editoto.reset}" Command="{Binding RefreshSinger}"
+                    IsVisible="{Binding IsClassic}" IsEnabled="{Binding Singer.OtoDirty}"/>
+            <Button Margin="0" Content="{DynamicResource singers.editoto.save}" Command="{Binding SaveOtos}"
+                    IsVisible="{Binding IsClassic}" IsEnabled="{Binding Singer.OtoDirty}"/>
+            <Button Margin="0" Content="{DynamicResource singers.editoto.editinvlabeler}"
+                    IsVisible="{Binding IsClassic}" Click="OnEditInVLabeler"/>
+            <TextBox Text="{Binding SearchAlias}" PlaceholderText="{DynamicResource singers.editoto.searchalias}" Margin="0"
+                     MinWidth="160" Focusable="True" IsVisible="{Binding UseSearchAlias}" />
+          </StackPanel>
+          <DataGrid Name="OtoGrid" Grid.Row="1" Margin="0" CanUserResizeColumns="True" BorderThickness="1"
                     BorderBrush="{DynamicResource SystemControlHighlightBaseMediumHighBrush}"
                     ItemsSource="{Binding DisplayedOtos}" SelectedItem="{Binding SelectedOto}" SelectedIndex="{Binding SelectedIndex}"
                     SelectionChanged="OnSelectedOtoChanged"
@@ -173,9 +81,9 @@
               <DataGridTextColumn Header="{StaticResource oto.overlap}" Binding="{Binding Overlap}"/>
             </DataGrid.Columns>
           </DataGrid>
-          <GridSplitter Grid.Row="1" Height="10"
+          <GridSplitter Grid.Row="2" Height="10"
                         Background="{DynamicResource SystemControlBackgroundAltHighBrush}"/>
-          <StackPanel Grid.Row="4" Margin="0" Orientation="Horizontal" Spacing="3">
+          <StackPanel Grid.Row="5" Margin="0" Orientation="Horizontal" Spacing="3">
             <Border Margin="0" BorderThickness="1" CornerRadius="4"
                     BorderBrush="{DynamicResource SystemControlForegroundBaseMediumBrush}">
               <TextBlock Margin="2,0">Q</TextBlock>
@@ -212,7 +120,7 @@
             </Border>
             <TextBlock Margin="0,1,6,1" Text="{DynamicResource singers.otoview.moveright}"/>
           </StackPanel>
-          <StackPanel Grid.Row="4" Margin="0" Orientation="Horizontal" Spacing="3"
+          <StackPanel Grid.Row="5" Margin="0" Orientation="Horizontal" Spacing="3"
                       HorizontalAlignment="Right">
               <Border BorderThickness="1" CornerRadius="4" ClipToBounds="True"
                       BorderBrush="{DynamicResource SystemControlForegroundBaseMediumBrush}">
@@ -246,7 +154,7 @@
                   </ToggleButton>
               </Border>
           </StackPanel>
-          <StackPanel Grid.Row="6" Margin="0" Orientation="Horizontal" Spacing="3">
+          <StackPanel Grid.Row="7" Margin="0" Orientation="Horizontal" Spacing="3">
             <Border Margin="0" BorderThickness="1" CornerRadius="4"
                     BorderBrush="{DynamicResource SystemControlForegroundBaseMediumBrush}">
               <TextBlock Margin="2,0">1</TextBlock>
@@ -273,7 +181,7 @@
             </Border>
             <TextBlock Margin="0,1,6,1" Text="{DynamicResource oto.edit.cutoff}"/>
           </StackPanel>
-          <Border Grid.Row="2" Margin="0">
+          <Border Grid.Row="3" Margin="0">
             <c:OtoPlot Name="OtoPlot" ZoomInMel="{Binding ZoomInMel}"/>
           </Border>
         </Grid>

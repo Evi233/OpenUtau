@@ -6,6 +6,7 @@ using System.Linq;
 using System.Text;
 using OpenUtau.Core.Render;
 using OpenUtau.Core.Ustx;
+using OpenUtau.Core.Util;
 
 namespace OpenUtau.Core.DiffSinger {
     public class DsScriptExportOptions {
@@ -94,7 +95,7 @@ namespace OpenUtau.Core.DiffSinger {
                     noteDurList.Add(gapMs);
                     noteSlurList.Add(0);
                 }
-                noteSeqList.Add((note.lyric == "SP" || note.lyric == "AP") ? 0 : note.tone);
+                noteSeqList.Add((note.lyric == "SP" || NoteLyricUtils.IsBreathLyric(note.lyric)) ? 0 : note.tone);
                 noteDurList.Add(note.durationMs);
                 noteSlurList.Add(note.lyric.StartsWith("+") ? 1 : 0);
                 prevNoteEndMs = note.positionMs + note.durationMs;

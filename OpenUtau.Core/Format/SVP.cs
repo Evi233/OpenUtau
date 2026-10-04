@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using OpenUtau.Core.Ustx;
+using OpenUtau.Core.Util;
 
 namespace OpenUtau.Core.Format {
     public static class SVP {
@@ -190,15 +191,15 @@ namespace OpenUtau.Core.Format {
                                 manualNoteRanges.Add((tickOn, tickOff));
                             }
 
-                            if (note.lyric == "-") note.lyric = "+~";
-                            else if (note.lyric.StartsWith(".")) note.lyric = $"[{note.lyric.Substring(1)}]";
+                            note.lyric = NoteLyricUtils.FromImport(note.lyric);
+                            if (note.lyric.StartsWith(".")) note.lyric = $"[{note.lyric.Substring(1)}]";
 
                             if (!string.IsNullOrWhiteSpace(svpNote.phonemes)) {
                                 phonemeQueue.Clear();
                                 foreach (var syl in svpNote.phonemes.Split('+').Select(s => s.Trim())) {
                                     if (!string.IsNullOrWhiteSpace(syl)) phonemeQueue.Enqueue(syl);
                                 }
-                            } else if (note.lyric != "+" && note.lyric != "+~") {
+                            } else if (!NoteLyricUtils.IsExtensionLyric(note.lyric)) {
                                 phonemeQueue.Clear();
                             }
 

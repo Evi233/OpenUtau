@@ -116,7 +116,11 @@ namespace OpenUtau.Core.Ustx {
 
         static List<Phonemizer.PhonemeAttributes> attributesBuffer = new List<Phonemizer.PhonemeAttributes>();
         internal Phonemizer.Note ToPhonemizerNote(UTrack track, UPart part) {
-            string lrc = lyric;
+            // Phonemizers only ever see the canonical spellings, so the "-"
+            // extension preference never leaks past this boundary.
+            string lrc = Extends != null
+                ? NoteLyricUtils.CanonicalExtension(lyric)
+                : NoteLyricUtils.CanonicalTail(lyric);
             string phoneticHint = null;
             lrc = phoneticHintPattern.Replace(lrc, match => {
                 phoneticHint = match.Groups[1].Value;

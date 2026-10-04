@@ -591,7 +591,7 @@ namespace OpenUtau.App.Controls {
                     bool isPrevDefault = string.IsNullOrEmpty(prevOver) || prevOver.Equals("Default", StringComparison.OrdinalIgnoreCase);
                     prevPh = isPrevDefault ? "Default" : prevOver;
                 }
-                bool isContinuation = note.lyric.StartsWith("+");
+                bool isContinuation = NoteLyricUtils.IsExtensionLyric(note.lyric);
                 bool isTransition = !isContinuation && ((note.Prev == null && !isCurrentDefault) || (note.Prev != null && currentPh != prevPh));
                 
                 if (isTransition) {

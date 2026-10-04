@@ -786,6 +786,8 @@ Warning: this option removes custom presets.</system:String>
   <system:String x:Key="prefs.channel.stable">Stable</system:String>
   <system:String x:Key="prefs.diffsinger">DiffSinger</system:String>
   <system:String x:Key="prefs.editing">Editing</system:String>
+  <system:String x:Key="prefs.editing.breathasbr">Write "br" for DiffSinger breath (sent to the model as "AP")</system:String>
+  <system:String x:Key="prefs.editing.dashextension">Use "-" instead of "+~" for note extensions</system:String>
   <system:String x:Key="prefs.general">General</system:String>
   <system:String x:Key="prefs.note.restart">Note: please restart OpenUtau after changing this item.</system:String>
   <system:String x:Key="prefs.otoeditor">Oto Editor</system:String>
@@ -1019,8 +1021,13 @@ General
   <system:String x:Key="tracks.solo.add">Solo additionally (which not removes solo from other tracks)</system:String>
   <system:String x:Key="tracks.solo.only">Solo this only (which removes solo from other tracks)</system:String>
   <system:String x:Key="tracks.solo.unsoloall">Unsolo all</system:String>
+  <system:String x:Key="tracks.database">Current database (track)</system:String>
+  <system:String x:Key="tracks.databaseversion">Database version</system:String>
+  <system:String x:Key="tracks.language">Language</system:String>
+  <system:String x:Key="tracks.singlanguage">Sing in the following language</system:String>
   <system:String x:Key="tracks.trackcolor">Change track color</system:String>
   <system:String x:Key="tracks.tracksettings">Track Settings</system:String>
+  <system:String x:Key="tracks.voice">Voice</system:String>
 
   <FontFamily x:Key="ui.fontfamily">Segoe UI,San Francisco,Helvetica Neue</FontFamily>
 

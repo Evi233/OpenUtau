@@ -8,6 +8,7 @@ using NWaves.Operations;
 using NWaves.Signals;
 using OpenUtau.Api;
 using OpenUtau.Core.Render;
+using OpenUtau.Core.Util;
 using Serilog;
 using SharpCompress;
 using YamlDotNet.Serialization;
@@ -123,7 +124,7 @@ namespace OpenUtau.Core.Ustx {
             }
             foreach (UNote note in notes) {
                 note.ExtendedDuration = note.duration;
-                if (note.Prev != null && note.Prev.End == note.position && note.lyric.StartsWith("+")) {
+                if (note.Prev != null && note.Prev.End == note.position && NoteLyricUtils.IsExtensionLyric(note.lyric)) {
                     note.Extends = note.Prev.Extends ?? note.Prev;
                     note.Extends.ExtendedDuration = note.End - note.Extends.position;
                 } else {

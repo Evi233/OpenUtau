@@ -187,7 +187,7 @@ namespace OpenUtau.UiTest {
         }
 
         [Fact]
-        public void SingersDialogHasATabPerYamlFile() => WithTempDir(dir => {
+        public void SingersEditorHasATabPerYamlFile() => WithTempDir(dir => {
             var dirA = Directory.CreateDirectory(Path.Combine(dir, "a")).FullName;
             var dirB = Directory.CreateDirectory(Path.Combine(dir, "b")).FullName;
             File.WriteAllText(Path.Combine(dirA, "character.yaml"), "name: Singer A\n");
@@ -196,7 +196,7 @@ namespace OpenUtau.UiTest {
                 MainWindowTest.InitCore();
                 HeadlessUi.Errors.Clear();
                 var viewModel = new SingersViewModel();
-                var dialog = new SingersDialog { DataContext = viewModel, Width = 1050, Height = 700 };
+                var dialog = new SingersEditorWindow { DataContext = viewModel, Width = 1050, Height = 700 };
                 try {
                     dialog.Show();
                     viewModel.Singer = new FolderSinger("Singer A", dirA);
@@ -208,13 +208,13 @@ namespace OpenUtau.UiTest {
                     Assert.True(characterTab.IsVisible);
                     Assert.False(dialog.FindControl<TabItem>("DsConfigTab")!.IsVisible);
                     Assert.Equal("name: Singer A\n", editor.Text);
-                    HeadlessUi.SaveScreenshot(dialog, "SingersDialogOtoTab");
+                    HeadlessUi.SaveScreenshot(dialog, "SingersEditorOtoTab");
 
                     tabs.SelectedItem = characterTab;
                     editor.Document.Insert(editor.Document.TextLength, "author: me\n");
                     HeadlessUi.Flush();
                     Assert.Equal("character.yaml *", characterTab.Header);
-                    HeadlessUi.SaveScreenshot(dialog, nameof(SingersDialogHasATabPerYamlFile));
+                    HeadlessUi.SaveScreenshot(dialog, nameof(SingersEditorHasATabPerYamlFile));
 
                     // Switching singers asks about the unsaved changes (answered No here) and loads the new file.
                     viewModel.Singer = new FolderSinger("Singer B", dirB);

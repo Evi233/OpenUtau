@@ -206,9 +206,7 @@ namespace OpenUtau.Core.Format {
                             if (!hasLyric) {
                                 lyric = defaultLyric;
                             }
-                            if (lyric == "-") {
-                                lyric = "+~";
-                            }
+                            lyric = NoteLyricUtils.FromImport(lyric);
                             note.lyric = lyric;
                             if (NotePresets.Default.AutoVibratoToggle && note.duration >= NotePresets.Default.AutoVibratoNoteDuration) {
                                 note.vibrato.length = NotePresets.Default.DefaultVibrato.VibratoLength;

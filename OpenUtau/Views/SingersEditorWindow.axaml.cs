@@ -1,14 +1,14 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Reactive.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
-using Avalonia.Platform.Storage;
 using NAudio.Wave;
 using NWaves.Audio;
 using OpenUtau.App.Controls;
@@ -21,24 +21,50 @@ using ReactiveUI.Primitives;
 using Serilog;
 
 namespace OpenUtau.App.Views {
-    public partial class SingersDialog : Window, ICmdSubscriber {
+    /// <summary>
+    /// Which page of <see cref="SingersEditorWindow"/> to show when it opens.
+    /// </summary>
+    public enum SingersEditorTab {
+        Oto,
+        CharacterYaml,
+        DsConfig,
+    }
+
+    /// <summary>
+    /// The oto table, the waveform and the voicebank config editors. Too wide for
+    /// a docked panel, so it is a window of its own, opened from the piano roll.
+    /// </summary>
+    public partial class SingersEditorWindow : Window, ICmdSubscriber {
         private bool editingCell = false;
 
         WaveFile? wav;
         string? wavPath;
 
-        public SingersDialog() {
+        // Only stop on close what this window started; the panel plays singer
+        // samples through the same audio output and may still be playing one.
+        private bool ownsPlayback;
+
+        public SingersEditorWindow() {
             InitializeComponent();
             DocManager.Inst.AddSubscriber(this);
             foreach (var (editor, tab) in YamlTabs) {
                 editor.DirtyChanged += (s, e) => tab.Header = editor.IsDirty ? editor.FileName + " *" : editor.FileName;
             }
             DataContextChanged += (s, e) => {
+                yamlSub?.Dispose();
+                resetSub?.Dispose();
+                yamlSub = resetSub = null;
                 if (DataContext is SingersViewModel viewModel) {
-                    ObservableMixins.WhereNotNull(viewModel.WhenAnyValue(vm => vm.Singer)).Subscribe(singer => LoadYaml(viewModel, singer));
+                    var singer = viewModel.WhenAnyValue(vm => vm.Singer);
+                    yamlSub = ObservableMixins.WhereNotNull(singer).Subscribe(s => LoadYaml(viewModel, s));
+                    // Skip the current value: only an actual singer change should
+                    // blank the plot.
+                    resetSub = singer.Skip(1).Subscribe(_ => ResetOtoView());
                 }
             };
         }
+
+        IDisposable? yamlSub, resetSub;
 
         (YamlEditor editor, TabItem tab)[] YamlTabs => new[] {
             (CharacterYamlEditor, CharacterYamlTab),
@@ -48,8 +74,16 @@ namespace OpenUtau.App.Views {
         USinger? yamlSinger;
         bool closeConfirmed;
 
+        public void SelectTab(SingersEditorTab tab) {
+            Tabs.SelectedItem = tab switch {
+                SingersEditorTab.CharacterYaml => CharacterYamlTab,
+                SingersEditorTab.DsConfig => DsConfigTab,
+                _ => OtoTab,
+            };
+        }
+
         // The YAML tabs follow the selected singer, after asking about unsaved changes to the last one's files.
-        async void LoadYaml(SingersViewModel viewModel, USinger? singer) {
+        async void LoadYaml(SingersViewModel viewModel, USinger singer) {
             if (singer == yamlSinger) {
                 return;
             }
@@ -98,158 +132,28 @@ namespace OpenUtau.App.Views {
         protected override void OnClosed(EventArgs e) {
             base.OnClosed(e);
             DocManager.Inst.RemoveSubscriber(this);
-            var playBack = PlaybackManager.Inst.AudioOutput;
-            var playbackState = playBack.PlaybackState;
-            if (playbackState == PlaybackState.Playing) {
-                playBack.Stop();
-            }
-        }
-
-        void OnSingerMenuButton(object sender, RoutedEventArgs args) {
-            SingerMenu.PlacementTarget = sender as Button;
-            SingerMenu.Open();
-        }
-
-        void OnVisitWebsite(object sender, RoutedEventArgs args) {
-            var viewModel = (DataContext as SingersViewModel)!;
-            if (viewModel.Singer == null) {
-                return;
-            }
-            try {
-                OS.OpenWeb(viewModel.Singer.Web);
-            } catch (Exception e) {
-                DocManager.Inst.ExecuteCmd(new ErrorMessageNotification(e));
-            }
-        }
-
-        async void OnSetImage(object sender, RoutedEventArgs args) {
-            var viewModel = (DataContext as SingersViewModel)!;
-            if (viewModel.Singer == null) {
-                return;
-            }
-            var file = await FilePicker.OpenFile(
-                this, "singers.setimage",
-                viewModel.Singer.Location,
-                FilePickerFileTypes.ImageAll);
-            if (file == null) {
-                return;
-            }
-            try {
-                //If the image isn't inside the voicebank, copy it in.
-                if (!file.StartsWith(viewModel.Singer.Location)) {
-                    string newFile = Path.Combine(viewModel.Singer.Location, Path.GetFileName(file));
-                    File.Copy(file, newFile, true);
-                    file = newFile;
+            yamlSub?.Dispose();
+            resetSub?.Dispose();
+            yamlSub = resetSub = null;
+            if (ownsPlayback) {
+                var playBack = PlaybackManager.Inst.AudioOutput;
+                if (playBack.PlaybackState == PlaybackState.Playing) {
+                    playBack.Stop();
                 }
-                viewModel.SetImage(Path.GetRelativePath(viewModel.Singer.Location, file));
-            } catch (Exception e) {
-                Log.Error(e, "Failed to set image");
-                _ = await MessageBox.ShowError(this, e);
+                ownsPlayback = false;
             }
         }
 
-        async void OnSetPortrait(object sender, RoutedEventArgs args) {
-            var viewModel = (DataContext as SingersViewModel)!;
-            if (viewModel.Singer == null) {
-                return;
-            }
-            var file = await FilePicker.OpenFile(
-                this, "singers.setportrait",
-                viewModel.Singer.Location,
-                FilePickerFileTypes.ImageAll);
-            if (file == null) {
-                return;
-            }
-            try {
-                //If the image isn't inside the voicebank, copy it in.
-                if (!file.StartsWith(viewModel.Singer.Location)) {
-                    string newFile = Path.Combine(viewModel.Singer.Location, Path.GetFileName(file));
-                    File.Copy(file, newFile, true);
-                    file = newFile;
-                }
-                viewModel.SetPortrait(Path.GetRelativePath(viewModel.Singer.Location, file));
-            } catch (Exception e) {
-                Log.Error(e, "Failed to set portrait");
-                _ = await MessageBox.ShowError(this, e);
-            }
-        }
+        private SingersViewModel? viewModel => DataContext as SingersViewModel;
 
-        async void OnPublish(object sender, RoutedEventArgs args) {
-            var viewModel = (DataContext as SingersViewModel)!;
-            if (viewModel.Singer == null) {
-                return;
-            }
-            var dialog = new SingerPublishDialog();
-            dialog.DataContext = new SingerPublishViewModel(viewModel.Singer);
-            await dialog.ShowDialog(this);
-        }
-
-        async void OnMerge(object sender, RoutedEventArgs args) {
-            var viewModel = (DataContext as SingersViewModel)!;
-            if (viewModel.Singer == null) {
-                return;
-            }
-            var classicSinger = viewModel.Singer as ClassicSinger;
-            if (classicSinger == null) {
-                return;
-            }
-            var dialog = new MergeVoicebankDialog();
-            dialog.DataContext = new MergeVoicebankViewModel(classicSinger);
-            await dialog.ShowDialog(this);
-        }
-
-        void OnEditSearchTerms(object sender, RoutedEventArgs args) {
-            var viewModel = (DataContext as SingersViewModel)!;
-            if (viewModel.Singer != null) {
-                var singer = viewModel.Singer;
-                ShowSearchTermsDialog(this, singer, text => SingersViewModel.SetSearchTerms(singer, text));
-            }
-        }
-
-        public static void ShowSearchTermsDialog(Window owner, USinger singer, Action<string> onFinish) {
-            var dialog = new TypeInDialog() {
-                Title = $"{ThemeManager.GetString("tracks.searchterms")}: {singer.LocalizedName}",
-            };
-            dialog.SetPrompt(ThemeManager.GetString("tracks.searchterms.prompt"));
-            dialog.SetText(string.Join(", ", singer.SearchTerms));
-            dialog.onFinish = onFinish;
-            dialog.ShowDialog(owner);
-        }
-
-        void OnSetUseFilenameAsAlias(object sender, RoutedEventArgs args) {
-            var viewModel = (DataContext as SingersViewModel)!;
-            viewModel.SetUseFilenameAsAlias();
-        }
-
-        async void OnEditSubbanksButton(object sender, RoutedEventArgs args) {
-            var viewModel = (DataContext as SingersViewModel)!;
-            if (viewModel.Singer == null) {
-                return;
-            }
-            var dialog = new EditSubbanksDialog();
-            dialog.ViewModel.SetSinger(viewModel.Singer!);
-            dialog.RefreshSinger = () => viewModel.RefreshSinger();
-            var playBack = PlaybackManager.Inst.AudioOutput;
-            var playbackState = playBack.PlaybackState;
-            if (playbackState == PlaybackState.Playing) {
-                playBack.Stop();
-            }
-            await dialog.ShowDialog(this);
-        }
-
-        private CancellationTokenSource? _otoLoadCts;
-        private bool _isChangingSinger;
-
-        void OnSelectedSingerChanged(object sender, SelectionChangedEventArgs e) {
+        // Called when the singer changed, from the panel's combo box. The wav and
+        // the plot belong to the old singer, so drop them; the selection that the
+        // table settles on afterwards draws the new one.
+        private void ResetOtoView() {
             _isChangingSinger = true;
 
             _otoLoadCts?.Cancel();
             _otoLoadCts = null;
-
-            var playBack = PlaybackManager.Inst.AudioOutput;
-            if (playBack.PlaybackState == PlaybackState.Playing) {
-                playBack.Stop();
-            }
 
             wav = null;
             wavPath = null;
@@ -260,6 +164,9 @@ namespace OpenUtau.App.Views {
                 _isChangingSinger = false;
             }, Avalonia.Threading.DispatcherPriority.Background);
         }
+
+        private CancellationTokenSource? _otoLoadCts;
+        private bool _isChangingSinger;
 
         void OnSelectedOtoChanged(object sender, SelectionChangedEventArgs e) {
             if (_isChangingSinger) {
@@ -310,9 +217,7 @@ namespace OpenUtau.App.Views {
             if (oto == null) {
                 return;
             }
-            if (viewModel.Singer != null) {
-                OpenInVLabeler(viewModel.Singer, oto);
-            }
+            OpenInVLabeler(viewModel.Singer, oto);
         }
 
         void OnEditInVLabeler(object sender, RoutedEventArgs args) {
@@ -352,17 +257,8 @@ namespace OpenUtau.App.Views {
             if (oto == null) {
                 return;
             }
-            if (viewModel.Singer != null) {
-                OpenInSetParam(viewModel.Singer, oto);
-            }
+            OpenInSetParam(viewModel.Singer, oto);
         }
-
-        /*void OnEditInVSetParam(object sender, RoutedEventArgs args) {
-            var viewModel = (DataContext as SingersViewModel)!;
-            if (viewModel.Singer != null) {
-                OpenInSetParam(viewModel.Singer, null);
-            }
-        }*/
 
         private void OpenInSetParam(USinger singer, UOto oto) {
             string path = Core.Util.Preferences.Default.SetParamPath;
@@ -395,67 +291,6 @@ namespace OpenUtau.App.Views {
             }
         }
 
-        void OnOpenReadme(object sender, RoutedEventArgs e) {
-            var viewModel = (DataContext as SingersViewModel)!;
-            if (viewModel.Singer != null) {
-                var readme = Path.Join(viewModel.Singer.Location, "readme.txt");
-                if (File.Exists(readme)) {
-                    var p = new Process();
-                    p.StartInfo = new ProcessStartInfo(readme) {
-                        UseShellExecute = true
-                    };
-                    p.Start();
-                } else {
-                    MessageBox.Show(
-                        this,
-                        ThemeManager.GetString("singers.readme.notfound"),
-                        ThemeManager.GetString("errors.caption"),
-                        MessageBox.MessageBoxButtons.Ok);
-                    return;
-                }
-            }
-        }
-
-        async Task<string?> FindSampleAsync(USinger singer) {
-            var sample = singer.Sample;
-            if (sample != null && File.Exists(sample)) {
-                return sample;
-            }
-
-            if (singer.SingerType == USingerType.Classic || singer.SingerType == USingerType.Voicevox) {
-                var path = singer.Location;
-                if (!Directory.Exists(path)) {
-                    return null;
-                }
-
-                return await Task.Run(() => {
-                    var extensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase) {
-                        ".wav", ".mp3", ".flac", ".aiff", ".ogg", ".opus"
-                    };
-
-                    var soundFile = Directory.EnumerateFiles(path, "*.*", SearchOption.AllDirectories)
-                        .Where(f => extensions.Contains(Path.GetExtension(f)))
-                        .OrderBy(_ => Guid.NewGuid())
-                        .FirstOrDefault();
-
-                    return soundFile;
-                });
-            }
-            return null;
-        }
-
-        public async void OnPlayCharacterSample(object sender, RoutedEventArgs e) {
-            var viewModel = (DataContext as SingersViewModel)!;
-            if (viewModel.Singer != null) {
-                var sample = await FindSampleAsync(viewModel.Singer);
-                if (sample == null) {
-                    return;
-                }
-
-                PlaybackManager.Inst.PlayFile(sample);
-            }
-        }
-
         public void OnPlaySelectedFile(object sender, RoutedEventArgs e) {
             var oto = OtoGrid?.SelectedItem as UOto;
             if (oto == null) {
@@ -463,6 +298,7 @@ namespace OpenUtau.App.Views {
             }
 
             PlaybackManager.Inst.PlayFile(oto.File);
+            ownsPlayback = true;
         }
 
         void RegenFrq(object sender, RoutedEventArgs args) {
@@ -492,6 +328,7 @@ namespace OpenUtau.App.Views {
                 }, scheduler);
             }
         }
+
         async void DrawOto(UOto? oto) {
             _otoLoadCts?.Cancel();
             _otoLoadCts = new CancellationTokenSource();
@@ -624,30 +461,31 @@ namespace OpenUtau.App.Views {
 
         #region ICmdSubscriber
 
+        // The loading notifications are raised by the view model around its slow work. This
+        // window is where that work is visible, so it hosts the busy indicator.
         public void OnNext(UCommand cmd, bool isUndo) {
-            if (cmd is LoadingNotification loadingNotif && loadingNotif.window == typeof(SingersDialog)) {
+            if (cmd is LoadingNotification loadingNotif && loadingNotif.window == typeof(SingersEditorWindow)) {
                 if (loadingNotif.startLoading) {
                     LoadingWindow.BeginLoading(this);
                 } else {
                     LoadingWindow.EndLoading();
                 }
             } else if (cmd is OtoChangedNotification otoChanged) {
-                var viewModel = DataContext as SingersViewModel;
-                if (viewModel == null) {
+                if (viewModel is not { } vm) {
                     return;
                 }
                 if (otoChanged.external) {
-                    viewModel.RefreshSinger();
+                    vm.RefreshSinger();
                 }
-                DrawOto(viewModel.SelectedOto);
+                DrawOto(vm.SelectedOto);
             } else if (cmd is GotoOtoNotification editOto) {
-                var viewModel = DataContext as SingersViewModel;
-                if (viewModel == null) {
+                if (viewModel is not { } vm) {
                     return;
                 }
                 if (editOto.singer != null) {
-                    viewModel.GotoOto(editOto.singer, editOto.oto);
+                    vm.GotoOto(editOto.singer, editOto.oto);
                 }
+                SelectTab(SingersEditorTab.Oto);
                 OtoGrid?.ScrollIntoView(OtoGrid.SelectedItem, null);
                 Activate();
             }

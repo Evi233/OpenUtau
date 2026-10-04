@@ -8,6 +8,7 @@ using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
+using OpenUtau.App.Controls;
 using OpenUtau.App.Views;
 using OpenUtau.Core;
 using OpenUtau.Core.Ustx;
@@ -232,7 +233,7 @@ namespace OpenUtau.App.ViewModels {
             if (mainWindow == null) {
                 return;
             }
-            SingersDialog.ShowSearchTermsDialog(mainWindow, tile.Singer,
+            SingersViewModel.ShowSearchTermsDialog(mainWindow, tile.Singer,
                 text => SingersViewModel.SetSearchTerms(tile.Singer, text));
         }
 

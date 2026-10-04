@@ -608,10 +608,6 @@ namespace OpenUtau.App.Views {
             ExpressionsDialog.Open(this);
         }
 
-        async void OnMenuSingers(object sender, RoutedEventArgs args) {
-            await OpenSingersWindowAsync();
-        }
-
         /// <summary>
         /// Check if a track has a singer and if it exists.
         /// If the user haven't selected a singer for the track, or the singer specified in ustx project doesn't exist, return null.
@@ -624,45 +620,85 @@ namespace OpenUtau.App.Views {
             return null;
         }
 
-        public async Task OpenSingersWindowAsync() {
-            var lifetime = Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime;
-            if (lifetime == null) {
+        void OnToggleVoicePanel(object sender, RoutedEventArgs args) {
+            if (viewModel.IsVoicePanelOpen) {
+                viewModel.IsVoicePanelOpen = false;
                 return;
             }
+            // Built before showing the panel so it is never briefly rendered with
+            // a null DataContext. It reads the selected track and loads no
+            // voicebank, so there is nothing to wait for.
+            viewModel.VoiceViewModel ??= new TrackVoiceViewModel();
+            viewModel.IsVoicePanelOpen = true;
+        }
 
+        void OnCloseVoicePanel(object sender, RoutedEventArgs args) {
+            viewModel.IsVoicePanelOpen = false;
+        }
+
+        // Built once and kept, because SingersViewModel has no teardown, so
+        // rebuilding it would leak a set of subscriptions.
+        async Task EnsureSingersViewModelAsync() {
+            if (viewModel.SingersViewModel != null) {
+                return;
+            }
+            // The editor window handles the loading notifications this raises once
+            // it exists, but it does not exist yet, hence the immediate indicator.
             LoadingWindow.BeginLoadingImmediate(this);
-            var dialog = await Task.Run(() => lifetime.Windows.FirstOrDefault(w => w is SingersDialog));
             try {
-                if (dialog == null) {
-                    SingersViewModel vm = await Task.Run<SingersViewModel>(() => {
-                        USinger? singer = null;
-                        if (viewModel.TracksViewModel.SelectedParts.Count > 0) {
-                            singer = TrackSingerIfFound(viewModel.TracksViewModel.Tracks[viewModel.TracksViewModel.SelectedParts.First().trackNo]);
+                viewModel.SingersViewModel = await Task.Run(() => {
+                    // The part under the cursor wins, then the selected track, then
+                    // the first one: the window opens on the voicebank the user is
+                    // working on, and there is always one to open on.
+                    var tracks = viewModel.TracksViewModel;
+                    UTrack? track = null;
+                    if (tracks.SelectedParts.Count > 0) {
+                        int trackNo = tracks.SelectedParts.First().trackNo;
+                        if (0 <= trackNo && trackNo < tracks.Tracks.Count) {
+                            track = tracks.Tracks[trackNo];
                         }
-                        if (singer == null && viewModel.TracksViewModel.Tracks.Count > 0) {
-                            singer = TrackSingerIfFound(viewModel.TracksViewModel.Tracks.First());
-                        }
-                        var vm = new SingersViewModel();
-
-                        if (singer != null) {
-                            vm.Singer = singer;
-                        }
-
-                        return vm;
-                    });
-
-                    dialog = new SingersDialog() { DataContext = vm };
-                }
-                if (dialog.Position.Y < 0) {
-                    dialog.Position = dialog.Position.WithY(0);
-                }
+                    }
+                    track ??= tracks.SelectedTracks.FirstOrDefault();
+                    track ??= tracks.Tracks.FirstOrDefault();
+                    var vm = new SingersViewModel();
+                    if (track != null && TrackSingerIfFound(track) is { } singer) {
+                        vm.Singer = singer;
+                    }
+                    return vm;
+                });
             } catch (Exception e) {
                 DocManager.Inst.ExecuteCmd(new ErrorMessageNotification(e));
             } finally {
                 LoadingWindow.EndLoading();
             }
-            if (dialog != null) {
-                ShowToolWindow(dialog);
+        }
+
+        /// <summary>
+        /// Opens the oto table and the config editors, reusing the window if it is
+        /// already up. It has no other entry point: neither the voice panel nor
+        /// any menu leads here.
+        /// </summary>
+        public async Task OpenSingersEditorWindowAsync(SingersEditorTab tab) {
+            var lifetime = Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime;
+            if (lifetime == null) {
+                return;
+            }
+
+            var window = lifetime.Windows.FirstOrDefault(w => w is SingersEditorWindow) as SingersEditorWindow;
+            try {
+                if (window == null) {
+                    await EnsureSingersViewModelAsync();
+                    window = new SingersEditorWindow() { DataContext = viewModel.SingersViewModel };
+                    if (window.Position.Y < 0) {
+                        window.Position = window.Position.WithY(0);
+                    }
+                }
+            } catch (Exception e) {
+                DocManager.Inst.ExecuteCmd(new ErrorMessageNotification(e));
+            }
+            if (window != null) {
+                window.SelectTab(tab);
+                ShowToolWindow(window);
             }
         }
 
@@ -748,22 +784,35 @@ namespace OpenUtau.App.Views {
             }
         }
 
-        void OnMenuPreferences(object sender, RoutedEventArgs args) {
-            PreferencesViewModel dataContext;
+        void OnTogglePreferencesPanel(object sender, RoutedEventArgs args) {
+            if (viewModel.IsPreferencesPanelOpen) {
+                viewModel.IsPreferencesPanelOpen = false;
+                return;
+            }
+            // Build the view model before showing the panel so it is never
+            // briefly rendered with a null DataContext.
+            EnsurePreferencesPanel();
+            viewModel.PreferencesViewModel!.OnPanelShown();
+            viewModel.IsPreferencesPanelOpen = true;
+        }
+
+        void OnClosePreferencesPanel(object sender, RoutedEventArgs args) {
+            viewModel.IsPreferencesPanelOpen = false;
+        }
+
+        // Created once and kept: PreferencesViewModel has no teardown, so
+        // rebuilding it on every open would leak a set of subscriptions.
+        void EnsurePreferencesPanel() {
+            if (viewModel.PreferencesViewModel != null) {
+                return;
+            }
             try {
-                dataContext = new PreferencesViewModel();
+                viewModel.PreferencesViewModel = new PreferencesViewModel();
             } catch (Exception e) {
                 Log.Error(e, "Failed to load prefs. Initialize it.");
                 MessageBox.ShowError(this, new MessageCustomizableException("Failed to load prefs. Initialize it.", "<translate:errors.failed.loadprefs>", e));
                 Preferences.Reset();
-                dataContext = new PreferencesViewModel();
-            }
-            var dialog = new PreferencesDialog() {
-                DataContext = dataContext
-            };
-            dialog.ShowDialog(this);
-            if (dialog.Position.Y < 0) {
-                dialog.Position = dialog.Position.WithY(0);
+                viewModel.PreferencesViewModel = new PreferencesViewModel();
             }
         }
 

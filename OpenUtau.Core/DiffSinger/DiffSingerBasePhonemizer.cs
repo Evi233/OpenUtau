@@ -206,6 +206,9 @@ namespace OpenUtau.Core.DiffSinger
 
         string[] GetSymbols(Note note, out string[] rejectedSymbols) {
             rejectedSymbols = Array.Empty<string>();
+            // The "br" breath alias is resolved here so the model always sees the
+            // symbol it registered ("AP"), whichever DiffSinger phonemizer runs.
+            string lyric = NoteLyricUtils.BreathLyricForModel(note.lyric);
             //priority:
             //1. phonetic hint
             //2. query from g2p dictionary
@@ -216,14 +219,14 @@ namespace OpenUtau.Core.DiffSinger
                 return ParsePhoneticHint(note.phoneticHint);
             }
             // User has not provided hint, query g2p dictionary.
-            var g2presult = g2p.Query(note.lyric)
-                ?? g2p.Query(note.lyric.ToLowerInvariant());
+            var g2presult = g2p.Query(lyric)
+                ?? g2p.Query(lyric.ToLowerInvariant());
             if(g2presult != null) {
                 return g2presult;
             }
             //not found in g2p dictionary, treat lyric as phonetic hint
-            rejectedSymbols = GetRejectedSymbols(note.lyric);
-            var lyricSplited = ParsePhoneticHint(note.lyric);
+            rejectedSymbols = GetRejectedSymbols(lyric);
+            var lyricSplited = ParsePhoneticHint(lyric);
             if (lyricSplited.Length > 0) {
                 return lyricSplited;
             }

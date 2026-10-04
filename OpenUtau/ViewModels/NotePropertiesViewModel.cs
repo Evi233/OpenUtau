@@ -168,7 +168,7 @@ namespace OpenUtau.App.ViewModels {
             if (selectedNotes.Count > 0) {
                 IsNoteSelected = true;
                 var note = selectedNotes.First();
-                IsPhonemizerEnabled = !note.lyric.StartsWith("+");
+                IsPhonemizerEnabled = !NoteLyricUtils.IsExtensionLyric(note.lyric);
                 if (!IsPhonemizerEnabled) {
                     PhonemizerOverride = ThemeManager.GetString("noteproperty.parent.phonemizer");
                 } else {
@@ -298,13 +298,7 @@ namespace OpenUtau.App.ViewModels {
             PhonemizerMenuItems = items;
         }
 
-        public string GetPhonemizerGroupHeader(string key) {
-            if (string.IsNullOrEmpty(key)) return "General";
-            if (ThemeManager.TryGetString($"languages.{key.ToLowerInvariant()}", out var value)) {
-                return $"{key}: {value}";
-            }
-            return key;
-        }
+        public string GetPhonemizerGroupHeader(string key) => PhonemizerChoices.GroupHeader(key);
 
         private void AttachExpressions() {
             if (Expressions.Count > 0) {

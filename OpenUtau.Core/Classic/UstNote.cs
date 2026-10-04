@@ -6,6 +6,7 @@ using System.Linq;
 using System.Text;
 using OpenUtau.Core.Format;
 using OpenUtau.Core.Ustx;
+using OpenUtau.Core.Util;
 
 namespace OpenUtau.Classic {
     class UstNote {
@@ -27,7 +28,7 @@ namespace OpenUtau.Classic {
         public UstNote() { }
 
         public UstNote(UProject project, UTrack track, UVoicePart part, UNote note) {
-            lyric = note.lyric;
+            lyric = NoteLyricUtils.ToExport(note.lyric);
             position = note.position;
             duration = note.duration;
             noteNum = note.tone;

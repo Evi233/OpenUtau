@@ -32,6 +32,7 @@ namespace OpenUtau.Core.DiffSinger {
         public override int PortraitHeight => voicebank.PortraitHeight;
         public override string Sample => voicebank.Sample == null ? null : Path.Combine(Location, voicebank.Sample);
         public override string DefaultPhonemizer => voicebank.DefaultPhonemizer;
+        public override IList<string> Languages => languages ??= LoadLanguages();
         public override Encoding TextFileEncoding => voicebank.TextFileEncoding;
         public override IList<USubbank> Subbanks => subbanks;
         public override IList<UOto> Otos => otos;
@@ -47,6 +48,7 @@ namespace OpenUtau.Core.DiffSinger {
         Dictionary<string, int> phonemeTokens;
         public Dictionary<string, int> languageIds = new Dictionary<string, int>();
         public DsConfig dsConfig;
+        List<string> languages;
         public ulong acousticHash;
         public InferenceSession acousticSession = null;
         public DsVocoder vocoder = null;
@@ -183,6 +185,26 @@ namespace OpenUtau.Core.DiffSinger {
             return string.IsNullOrEmpty(Portrait)
                 ? null
                 : File.ReadAllBytes(Portrait);
+        }
+
+        // The languages the voicebank was trained on, read from the file dsconfig.yaml points at.
+        // This is deliberately independent of use_lang_id: that flag only says whether the acoustic
+        // model consumes the ids, while the language list is what declares the voicebank's
+        // languages. A voicebank that ships the file is multilingual even when the flag is false.
+        List<string> LoadLanguages() {
+            if (string.IsNullOrEmpty(dsConfig?.languages)) {
+                return new List<string>();
+            }
+            var path = Path.Join(Location, dsConfig.languages);
+            if (!File.Exists(path)) {
+                return new List<string>();
+            }
+            try {
+                return DiffSingerUtils.LoadLanguageIds(path).Keys.ToList();
+            } catch (Exception e) {
+                Log.Error(e, $"Failed to load languages for {Name} from {path}");
+                return new List<string>();
+            }
         }
 
         public InferenceSession getAcousticSession() {

@@ -79,6 +79,8 @@ namespace OpenUtau.App.ViewModels {
                 .ToList();
         [Reactive] public partial LyricsHelperOption? LyricsHelper { get; set; }
         [Reactive] public partial bool LyricsHelperBrackets { get; set; }
+        [Reactive] public partial bool UseDashExtension { get; set; }
+        [Reactive] public partial bool BreathAsBr { get; set; }
         [Reactive] public partial bool PenPlusDefault { get; set; }
 
         // Render
@@ -165,7 +167,16 @@ namespace OpenUtau.App.ViewModels {
             });
         }
 
-        public PreferencesViewModel() {
+        /// <summary>
+        /// Called every time the settings panel is shown. This view model is created
+        /// once and kept, so anything it snapshots in the constructor can go stale;
+        /// the audio device list is the one that actually changes while the app runs.
+        /// </summary>
+        public void OnPanelShown() {
+            RefreshAudioDevices();
+        }
+
+        public void RefreshAudioDevices() {
             var audioOutput = PlaybackManager.Inst.AudioOutput;
             if (audioOutput != null) {
                 AudioOutputDevices = audioOutput.GetOutputDevices();
@@ -175,6 +186,10 @@ namespace OpenUtau.App.ViewModels {
                     AudioOutputDevice = device;
                 }
             }
+        }
+
+        public PreferencesViewModel() {
+            RefreshAudioDevices();
             UseSystemDefaultDevice = Preferences.Default.UseSystemDefaultAudioDevice;
             AudioBackEnd = Preferences.Default.AudioBackEnd;
             PlaybackAutoScroll = Preferences.Default.PlaybackAutoScroll;
@@ -246,6 +261,8 @@ namespace OpenUtau.App.ViewModels {
             };
             LyricsHelper = LyricsHelpers.FirstOrDefault(option => option.klass.Equals(ActiveLyricsHelper.Inst.GetPreferred()));
             LyricsHelperBrackets = Preferences.Default.LyricsHelperBrackets;
+            UseDashExtension = Preferences.Default.UseDashExtension;
+            BreathAsBr = Preferences.Default.BreathAsBr;
             OtoEditor = Preferences.Default.OtoEditor;
             RememberMid = Preferences.Default.RememberMid;
             RememberUst = Preferences.Default.RememberUst;
@@ -442,6 +459,25 @@ namespace OpenUtau.App.ViewModels {
                 });
             PersistOn(this.WhenAnyValue(vm => vm.GameBackend),
                 backend => Preferences.Default.GameBackend = backend == "GGML" ? "ggml" : "onnx");
+            // These two change what the phonemizers receive, so unlike the plain
+            // PersistOn subscriptions they must re-validate the project and drop
+            // the render cache after saving.
+            this.WhenAnyValue(vm => vm.UseDashExtension)
+                .Skip(1)
+                .Subscribe(value => {
+                    Preferences.Default.UseDashExtension = value;
+                    Preferences.Save();
+                    DocManager.Inst.ExecuteCmd(new ValidateProjectNotification());
+                    DocManager.Inst.ExecuteCmd(new PreRenderNotification());
+                });
+            this.WhenAnyValue(vm => vm.BreathAsBr)
+                .Skip(1)
+                .Subscribe(value => {
+                    Preferences.Default.BreathAsBr = value;
+                    Preferences.Save();
+                    DocManager.Inst.ExecuteCmd(new ValidateProjectNotification());
+                    DocManager.Inst.ExecuteCmd(new PreRenderNotification());
+                });
             PersistOn(this.WhenAnyValue(vm => vm.RememberMid),
                 value => Preferences.Default.RememberMid = value);
             PersistOn(this.WhenAnyValue(vm => vm.RememberUst),

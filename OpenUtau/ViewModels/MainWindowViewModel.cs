@@ -63,6 +63,28 @@ namespace OpenUtau.App.ViewModels {
 
         [Reactive] public partial PlaybackViewModel PlaybackViewModel { get; set; }
         [Reactive] public partial TracksViewModel TracksViewModel { get; set; }
+        /// <summary>Whether the docked settings panel on the right is expanded.</summary>
+        [Reactive] public partial bool IsPreferencesPanelOpen { get; set; }
+        /// <summary>
+        /// Backs the settings panel. Created lazily the first time the panel is
+        /// opened and kept for the lifetime of the window, because
+        /// <see cref="PreferencesViewModel"/> has no teardown for its subscriptions.
+        /// </summary>
+        [Reactive] public partial PreferencesViewModel? PreferencesViewModel { get; set; }
+        /// <summary>Whether the docked voice panel on the right is expanded.</summary>
+        [Reactive] public partial bool IsVoicePanelOpen { get; set; }
+        /// <summary>
+        /// Backs the voice panel, which edits whichever track is selected. Created
+        /// lazily and kept for the lifetime of the window, because
+        /// <see cref="TrackVoiceViewModel"/> has no teardown for its subscriptions.
+        /// </summary>
+        [Reactive] public partial TrackVoiceViewModel? VoiceViewModel { get; set; }
+        /// <summary>
+        /// Backs the singer editor window. Created lazily and kept for the
+        /// lifetime of the window, because
+        /// <see cref="SingersViewModel"/> has no teardown for its subscriptions.
+        /// </summary>
+        [Reactive] public partial SingersViewModel? SingersViewModel { get; set; }
         [Reactive] public partial ReactiveCommand<string, RxVoid>? OpenRecentCommand { get; private set; }
         [Reactive] public partial ReactiveCommand<string, RxVoid>? OpenTemplateCommand { get; private set; }
         public ObservableCollectionExtended<MenuItemViewModel> OpenRecentMenuItems => openRecentMenuItems;

@@ -66,41 +66,17 @@ namespace OpenUtau.App.ViewModels {
         public TrackHeaderViewModel(UTrack track) {
             this.track = track;
             SelectSingerCommand = ReactiveCommand.Create<USinger>(singer => {
-                if (track.Singer != singer) {
-                    DocManager.Inst.StartUndoGroup("command.track.singer");
-                    ApplySingerToTrack(track, singer);
-                    DocManager.Inst.ExecuteCmd(new VoiceColorRemappingNotification(track.TrackNo, true));
-                    DocManager.Inst.EndUndoGroup();
-                    UpdateRecentSingers(singer);
-                    Preferences.Save();
-                    MessageBus.Current.SendMessage(new PianorollRefreshEvent("Part"));
+                if (TrackSingerEdits.ChangeSinger(track, singer)) {
+                    this.RaisePropertyChanged(nameof(Singer));
+                    this.RaisePropertyChanged(nameof(Renderer));
+                    RefreshAvatar();
                 }
-                MessageBus.Current.SendMessage(new TracksRefreshEvent());
-                this.RaisePropertyChanged(nameof(Singer));
-                this.RaisePropertyChanged(nameof(Renderer));
-                RefreshAvatar();
             });
             SelectPhonemizerCommand = ReactiveCommand.Create<PhonemizerFactory>(factory => {
-                if (track.Phonemizer.GetType() != factory.type) {
-                    DocManager.Inst.StartUndoGroup("command.track.setting");
-                    var phonemizer = factory.Create();
-                    Log.Information($"Loading Phonemizer: {phonemizer.ToString()}");
-                    DocManager.Inst.ExecuteCmd(new TrackChangePhonemizerCommand(DocManager.Inst.Project, track, phonemizer));
-                    DocManager.Inst.EndUndoGroup();
-                    var name = phonemizer.GetType().FullName!;
-                    if (!string.IsNullOrEmpty(Singer?.Id) && phonemizer != null) {
-                        Preferences.Default.SingerPhonemizers[Singer.Id] = name;
-                    }
-                    Preferences.Default.RecentPhonemizers.Remove(name);
-                    Preferences.Default.RecentPhonemizers.Insert(0, name);
-                    while (Preferences.Default.RecentPhonemizers.Count > 8) {
-                        Preferences.Default.RecentPhonemizers.RemoveRange(
-                            8, Preferences.Default.RecentPhonemizers.Count - 8);
-                    }
-                    Preferences.Save();
+                if (TrackSingerEdits.ChangePhonemizer(track, factory)) {
+                    this.RaisePropertyChanged(nameof(Phonemizer));
+                    this.RaisePropertyChanged(nameof(PhonemizerTag));
                 }
-                this.RaisePropertyChanged(nameof(Phonemizer));
-                this.RaisePropertyChanged(nameof(PhonemizerTag));
             });
             SelectRendererCommand = ReactiveCommand.Create<string>(name => {
                 var settings = new URenderSettings {
@@ -110,6 +86,7 @@ namespace OpenUtau.App.ViewModels {
                 DocManager.Inst.ExecuteCmd(new TrackChangeRenderSettingCommand(DocManager.Inst.Project, track, settings));
                 DocManager.Inst.EndUndoGroup();
                 this.RaisePropertyChanged(nameof(Renderer));
+                MessageBus.Current.SendMessage(new TracksRefreshEvent());
             });
 
             Activator = new ViewModelActivator();
@@ -224,66 +201,7 @@ namespace OpenUtau.App.ViewModels {
             this.RaisePropertyChanged(nameof(Muted));
         }
 
-        private void ApplySingerToTrack(UTrack targetTrack, USinger? singer) {
-            if (singer is USinger selectedSinger) {
-                Log.Information($"Loading Singer: {selectedSinger.Name}");
-                DocManager.Inst.ExecuteCmd(new TrackChangeSingerCommand(DocManager.Inst.Project, targetTrack, selectedSinger));
-                if (!string.IsNullOrEmpty(selectedSinger.Id) &&
-                    Preferences.Default.SingerPhonemizers.TryGetValue(selectedSinger.Id, out var phonemizerName) &&
-                    TryChangePhonemizer(targetTrack, phonemizerName)) {
-                } else if (!string.IsNullOrEmpty(selectedSinger.DefaultPhonemizer)) {
-                    TryChangePhonemizer(targetTrack, selectedSinger.DefaultPhonemizer);
-                }
-                if (!selectedSinger.Found || selectedSinger.SingerType != targetTrack.RendererSettings.Renderer?.SingerType) {
-                    var settings = new URenderSettings();
-                    if (selectedSinger.Found) {
-                        settings = new URenderSettings {
-                            renderer = Core.Render.Renderers.GetDefaultRenderer(selectedSinger.SingerType),
-                        };
-                    }
-                    DocManager.Inst.ExecuteCmd(new TrackChangeRenderSettingCommand(DocManager.Inst.Project, targetTrack, settings));
-                }
-            } else {
-                DocManager.Inst.ExecuteCmd(new TrackChangeSingerCommand(DocManager.Inst.Project, targetTrack, USinger.CreateMissing(string.Empty)));
-                var settings = new URenderSettings();
-                DocManager.Inst.ExecuteCmd(new TrackChangeRenderSettingCommand(DocManager.Inst.Project, targetTrack, settings));
-            }
-        }
-
-        private void UpdateRecentSingers(USinger? singer) {
-            if (!string.IsNullOrEmpty(singer?.Id) && singer.Found) {
-                Preferences.Default.RecentSingers.Remove(singer.Id);
-                Preferences.Default.RecentSingers.Insert(0, singer.Id);
-                if (Preferences.Default.RecentSingers.Count > 16) {
-                    Preferences.Default.RecentSingers.RemoveRange(
-                        16, Preferences.Default.RecentSingers.Count - 16);
-                }
-            }
-        }
-
-        private bool TryChangePhonemizer(UTrack targetTrack, string phonemizerName) {
-            try {
-                var factory = PhonemizerFactory.Get(phonemizerName);
-                var phonemizer = factory?.Create();
-                if (phonemizer != null) {
-                    DocManager.Inst.ExecuteCmd(new TrackChangePhonemizerCommand(DocManager.Inst.Project, targetTrack, phonemizer));
-                    return true;
-                }
-            } catch (Exception e) {
-                Log.Error(e, $"Failed to load phonemizer {phonemizerName}");
-            }
-            return false;
-        }
-
-        public string GetPhonemizerGroupHeader(string key) {
-            if (key is null) {
-                return "General";
-            }
-            if (ThemeManager.TryGetString($"languages.{key.ToLowerInvariant()}", out var value)) {
-                return $"{key}: {value}";
-            }
-            return key;
-        }
+        public string GetPhonemizerGroupHeader(string key) => PhonemizerChoices.GroupHeader(key);
 
         PhonemizerFactory? FindPhonemizerByName(string name) {
             return PhonemizerFactory.Get(name);

@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using Serilog;
 
 using OpenUtau.Core.Ustx;
+using OpenUtau.Core.Util;
 
 namespace OpenUtau.Core.Format {
     public static class VSQx {
@@ -181,10 +182,7 @@ namespace OpenUtau.Core.Format {
                         unote.position = int.Parse(note.SelectSingleNode(postickPath, nsmanager).InnerText);
                         unote.duration = int.Parse(note.SelectSingleNode(durtickPath, nsmanager).InnerText);
                         unote.tone = int.Parse(note.SelectSingleNode(notenumPath, nsmanager).InnerText);
-                        unote.lyric = note.SelectSingleNode(lyricPath, nsmanager).InnerText;
-                        if (unote.lyric == "-") {
-                            unote.lyric = "+~";
-                        }
+                        unote.lyric = NoteLyricUtils.FromImport(note.SelectSingleNode(lyricPath, nsmanager).InnerText);
 
                         unote.phonemeExpressions.Add(new UExpression(Ustx.VEL) {
                             index = 0,

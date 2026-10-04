@@ -1,0 +1,140 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:OpenUtau.App.ViewModels"
+             xmlns:ustx="using:OpenUtau.Core.Ustx"
+             mc:Ignorable="d" d:DesignWidth="300" d:DesignHeight="700"
+             x:Class="OpenUtau.App.Controls.TrackVoicePanel"
+             x:DataType="vm:TrackVoiceViewModel">
+  <UserControl.Resources>
+    <!--The same grouped phonemizer menu the track header shows, opened from the
+        button below it. Resource rather than inline so the styles resolve.-->
+    <ContextMenu x:Key="PhonemizersMenuRes" Classes="context" Placement="BottomEdgeAlignedLeft"
+                 ItemsSource="{Binding PhonemizerMenuItems}">
+      <ContextMenu.Styles>
+        <Style Selector="MenuItem" x:DataType="vm:MenuItemViewModel">
+          <Setter Property="Header" Value="{Binding Header}"/>
+          <Setter Property="Command" Value="{Binding Command}"/>
+          <Setter Property="CommandParameter" Value="{Binding CommandParameter}"/>
+          <Setter Property="IsEnabled" Value="{Binding IsEnabled}"/>
+          <Setter Property="IsChecked" Value="{Binding IsChecked}"/>
+        </Style>
+      </ContextMenu.Styles>
+    </ContextMenu>
+  </UserControl.Resources>
+  <UserControl.Styles>
+    <Style Selector="StackPanel">
+      <Setter Property="Spacing" Value="4"/>
+    </Style>
+    <Style Selector="ComboBox">
+      <Setter Property="HorizontalAlignment" Value="Stretch"/>
+    </Style>
+    <!--Section heading: a rule under the title, as in the settings panel.-->
+    <Style Selector="Border.section">
+      <Setter Property="BorderThickness" Value="0,0,0,1"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource SystemControlForegroundBaseMediumBrush}"/>
+      <Setter Property="Margin" Value="0,16,0,8"/>
+      <Setter Property="Padding" Value="0,0,0,4"/>
+    </Style>
+    <Style Selector="Border.section > TextBlock">
+      <Setter Property="FontSize" Value="14"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+    </Style>
+    <!--The voicebank card: icon, name, and whatever the voicebank says about itself.-->
+    <Style Selector="Border.card">
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource SystemControlForegroundBaseMediumBrush}"/>
+      <Setter Property="CornerRadius" Value="2"/>
+      <Setter Property="Padding" Value="8"/>
+    </Style>
+    <Style Selector="TextBlock.subtle">
+      <Setter Property="FontSize" Value="11"/>
+      <Setter Property="Opacity" Value="0.8"/>
+      <Setter Property="TextWrapping" Value="Wrap"/>
+    </Style>
+  </UserControl.Styles>
+
+  <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+    <StackPanel Margin="10">
+      <!-- Voice -->
+      <Border Classes="section"><TextBlock Text="{DynamicResource tracks.voice}"/></Border>
+      <StackPanel>
+        <TextBlock Text="{DynamicResource tracks.database}"/>
+        <!--Same wording as the track header, which also has nothing to show until
+            a voicebank is picked.-->
+        <ComboBox ItemsSource="{Binding Singers}" SelectedItem="{Binding Singer}"
+                  PlaceholderText="{DynamicResource tracks.selectsinger}">
+          <ComboBox.ItemTemplate>
+            <DataTemplate x:DataType="ustx:USinger">
+              <TextBlock Text="{Binding LocalizedName}"/>
+            </DataTemplate>
+          </ComboBox.ItemTemplate>
+        </ComboBox>
+        <TextBlock Text="{DynamicResource tracks.databaseversion}" Margin="0,10,0,0"/>
+        <!--Version management does not exist yet, so this lists the installed
+            version and nothing else.-->
+        <ComboBox ItemsSource="{Binding DatabaseVersions}" SelectedIndex="0" IsEnabled="False"/>
+        <Border Classes="card" Margin="0,10,0,0" IsVisible="{Binding HasSinger}">
+          <Grid ColumnDefinitions="Auto,*">
+            <!--The gap belongs to the icon, so a voicebank without one starts its
+                name at the edge of the card instead of leaving a hole.-->
+            <Image Grid.Column="0" Width="64" Height="64" Margin="0,0,8,0"
+                   Source="{Binding Avatar}" IsVisible="{Binding HasAvatar}"/>
+            <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+              <TextBlock Text="{Binding SingerName}" FontWeight="SemiBold" TextWrapping="Wrap"/>
+              <TextBlock Classes="subtle" Text="{Binding Author}" IsVisible="{Binding HasAuthor}"/>
+              <TextBlock Classes="subtle" Text="{Binding Version}" IsVisible="{Binding HasVersion}"/>
+            </StackPanel>
+          </Grid>
+        </Border>
+      </StackPanel>
+
+      <!-- Parameters -->
+      <StackPanel IsVisible="{Binding HasParameters}">
+        <Border Classes="section"><TextBlock Text="{DynamicResource exps.caption}"/></Border>
+        <ItemsControl ItemsSource="{Binding Parameters}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:TrackExpressionViewModel">
+              <Grid RowDefinitions="Auto,Auto" Margin="0,0,0,8">
+                <TextBlock Grid.Row="0" Text="{Binding Name}" FontWeight="{Binding NameFontWeight}"
+                           TextTrimming="CharacterEllipsis"/>
+                <Grid Grid.Row="1" ColumnDefinitions="*,6,56">
+                  <Slider Grid.Column="0" Classes="fader" VerticalAlignment="Center"
+                          Minimum="{Binding Min}" Maximum="{Binding Max}" Value="{Binding Value}"
+                          IsVisible="{Binding IsNumerical}"
+                          PointerReleased="OnExpressionSliderPointerReleased"
+                          LostFocus="OnExpressionSliderLostFocus"
+                          KeyUp="OnExpressionSliderKeyUp"
+                          ContextRequested="OnExpressionSliderContextRequested"/>
+                  <ComboBox Grid.Column="0" Grid.ColumnSpan="3" MinWidth="0"
+                            ItemsSource="{Binding Options}" SelectedIndex="{Binding SelectedOption}"
+                            IsVisible="{Binding IsOptions}"
+                            SelectionChanged="OnExpressionOptionChanged"/>
+                  <TextBox Grid.Column="2" VerticalAlignment="Center" Text="{Binding Text}"
+                           IsVisible="{Binding IsNumerical}"
+                           LostFocus="OnExpressionTextLostFocus" KeyDown="OnExpressionTextKeyDown"/>
+                </Grid>
+              </Grid>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </StackPanel>
+
+      <!-- Language -->
+      <StackPanel IsVisible="{Binding IsLanguageVisible}">
+        <Border Classes="section"><TextBlock Text="{DynamicResource tracks.language}"/></Border>
+        <TextBlock Text="{DynamicResource tracks.singlanguage}"/>
+        <!--A DiffSinger voicebank says which languages it was trained on, so the
+            choice is a language and the phonemizer follows. Every other engine
+            gets the phonemizer list instead.-->
+        <ComboBox ItemsSource="{Binding Languages}" SelectedItem="{Binding SelectedLanguage}"
+                  IsVisible="{Binding IsLanguageChoice}"/>
+        <Button HorizontalAlignment="Stretch" IsVisible="{Binding IsPhonemizerChoice}"
+                Click="OnPhonemizerButtonClicked" ContextRequested="OnPhonemizerContextRequested">
+          <TextBlock Text="{Binding PhonemizerName}" TextTrimming="CharacterEllipsis"/>
+        </Button>
+      </StackPanel>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

@@ -18,7 +18,7 @@
     </Style>
   </Window.Styles>
   <Grid>
-    <Grid Name="MainGrid" Margin="{Binding $parent[Window].WindowDecorationMargin}">
+    <Grid Name="MainGrid" Margin="{Binding $parent[Window].WindowDecorationMargin}" ColumnDefinitions="*,Auto,Auto,Auto">
       <Menu Grid.Row="0" Grid.Column="0" VerticalAlignment="Top" HorizontalAlignment="Left" Height="24"
                 Opened="OnMainMenuOpened" Closed="OnMainMenuClosed" PointerExited="OnMainMenuPointerLeave"
                 ZIndex="1">
@@ -73,11 +73,9 @@
             <MenuItem Header="{Binding ClearCacheHeader}" Click="OnMenuClearCache"/>
             <MenuItem Header="{DynamicResource menu.tools.debugwindow}" Click="OnMenuDebugWindow"/>
             <MenuItem Header="{DynamicResource phoneticassistant.caption}" Click="OnMenuPhoneticAssistant"/>
-            <MenuItem Header="{DynamicResource menu.tools.singers}" Click="OnMenuSingers"/>
             <MenuItem Header="{DynamicResource menu.tools.singer.install}" Click="OnMenuInstallSinger"/>
             <MenuItem Header="{DynamicResource menu.tools.wavtoolresampler.install}" Click="OnMenuInstallWavtoolResampler"/>
             <MenuItem Header="{DynamicResource menu.tools.packages}" Click="OnMenuPackageManager"/>
-            <MenuItem Header="{DynamicResource menu.tools.prefs}" Click="OnMenuPreferences"/>
           </MenuItem>
           <MenuItem Header="{DynamicResource menu.help}">
             <MenuItem Header="{DynamicResource menu.help.wiki}" Click="OnMenuWiki"/>
@@ -434,6 +432,117 @@
           <ProgressBar Grid.Row="6" Grid.ColumnSpan="3" VerticalAlignment="Stretch" HorizontalAlignment="Stretch" Value="{Binding Progress}"/>
         </Grid>
       </Carousel>
+      <!--Settings panel, opened from the gear in the function bar. The column
+          is Auto sized, so hiding the Border collapses it to nothing.-->
+      <Border Grid.Row="0" Grid.Column="1" Width="340"
+              IsVisible="{Binding IsPreferencesPanelOpen}"
+              Background="{DynamicResource SystemControlBackgroundAltHighBrush}"
+              BorderBrush="{DynamicResource SystemControlForegroundBaseMediumBrush}"
+              BorderThickness="1,0,0,0">
+        <Grid RowDefinitions="Auto,*">
+          <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" Height="32" Margin="10,0">
+            <Path Grid.Column="0" Height="16" Width="16" VerticalAlignment="Center"
+                  Data="M9.001425 11.34a2.35 2.35 0 0 1-2.34-2.34 2.35 2.35 0 0 1 2.34-2.34 2.35 2.35 0 0 1 2.35 2.34 2.35 2.35 0 0 1-2.35 2.35m4.98-1.7a5.2 5.2 0 0 0 0-1.32l1.41-1.1c.13-.1.16-.27.08-.42l-1.34-2.32a.33.33 0 0 0-.4-.15l-1.67.67a4.86 4.86 0 0 0-1.14-.65l-.25-1.78a.34.34 0 0 0-.33-.28h-2.68c-.17 0-.3.12-.33.28l-.25 1.78c-.42.16-.79.4-1.14.65l-1.66-.67a.33.33 0 0 0-.41.15l-1.34 2.32a.33.33 0 0 0 .08.43l1.41 1.09a5.73 5.73 0 0 0 0 1.32l-1.41 1.11a.33.33 0 0 0-.08.43l1.34 2.32c.08.15.26.2.4 0.15l1.67-.68c.35.27.71.5 1.14.66l.25 1.78c.02.16.16.28.33.28h2.68c.17 0 .3-.12.33-.28l.25-1.78c.42-.17.79-.4 1.14-.66l1.66.68c.15.05.33 0 .41-.15l1.34-2.32a.34.34 0 0 0-.08-.43l-1.41-1.1z"
+                  Fill="{StaticResource NeutralAccentBrush}"/>
+            <TextBlock Grid.Column="1" Margin="8,0,0,0" VerticalAlignment="Center"
+                       FontSize="14" FontWeight="SemiBold"
+                       Text="{DynamicResource menu.tools.prefs}"/>
+            <Button Grid.Column="2" Classes="clear" Width="24" Height="24" Margin="0" Padding="0"
+                    HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                    Click="OnClosePreferencesPanel">
+              <Path Height="16" Width="16"
+                    Stroke="{StaticResource NeutralAccentBrush}" StrokeThickness="1.6"
+                    StrokeLineCap="Round" StrokeJoin="Round"
+                    Data="M10 3.5 L5.5 8 L10 12.5"/>
+            </Button>
+          </Grid>
+          <Border Grid.Row="1" BorderBrush="{DynamicResource SystemControlForegroundBaseMediumBrush}"
+                  BorderThickness="0,1,0,0">
+            <!-- Through a ContentControl so the panel is only realized once the
+                 view model exists: its compiled bindings would otherwise run
+                 against this window's DataContext while it is being attached. -->
+            <ContentControl Content="{Binding PreferencesViewModel}">
+              <ContentControl.ContentTemplate>
+                <DataTemplate x:DataType="vm:PreferencesViewModel">
+                  <c:PreferencesPanel/>
+                </DataTemplate>
+              </ContentControl.ContentTemplate>
+            </ContentControl>
+          </Border>
+        </Grid>
+      </Border>
+      <!--Voice panel, opened from the voice button in the function bar, and
+          independent of the settings panel next to it. It edits the selected
+          track, so it follows the track selection rather than a global singer.-->
+      <Border Grid.Row="0" Grid.Column="2" Width="300"
+              IsVisible="{Binding IsVoicePanelOpen}"
+              Background="{DynamicResource SystemControlBackgroundAltHighBrush}"
+              BorderBrush="{DynamicResource SystemControlForegroundBaseMediumBrush}"
+              BorderThickness="1,0,0,0">
+        <Grid RowDefinitions="Auto,*">
+          <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" Height="32" Margin="10,0">
+            <Path Grid.Column="0" Height="16" Width="16" VerticalAlignment="Center"
+                  Data="M12,4C14.5,4 16.5,6 16.5,8.5C16.5,10.11 15.66,11.53 14.4,12.33L15.5,20H8.5L9.6,12.33C8.34,11.53 7.5,10.11 7.5,8.5C7.5,6 9.5,4 12,4M12,6A2.5,2.5 0 0,0 9.5,8.5A2.5,2.5 0 0,0 12,11A2.5,2.5 0 0,0 14.5,8.5A2.5,2.5 0 0,0 12,6Z"
+                  Fill="{StaticResource NeutralAccentBrush}"/>
+            <TextBlock Grid.Column="1" Margin="8,0,0,0" VerticalAlignment="Center"
+                       FontSize="14" FontWeight="SemiBold"
+                       Text="{DynamicResource tracks.voice}"/>
+            <Button Grid.Column="2" Classes="clear" Width="24" Height="24" Margin="0" Padding="0"
+                    HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                    Click="OnCloseVoicePanel">
+              <Path Height="16" Width="16"
+                    Stroke="{StaticResource NeutralAccentBrush}" StrokeThickness="1.6"
+                    StrokeLineCap="Round" StrokeJoin="Round"
+                    Data="M10 3.5 L5.5 8 L10 12.5"/>
+            </Button>
+          </Grid>
+          <Border Grid.Row="1" BorderBrush="{DynamicResource SystemControlForegroundBaseMediumBrush}"
+                  BorderThickness="0,1,0,0">
+            <!-- Through a ContentControl so the panel is only realized once the
+                 view model exists: its compiled bindings would otherwise run
+                 against this window's DataContext while it is being attached. -->
+            <ContentControl Content="{Binding VoiceViewModel}">
+              <ContentControl.ContentTemplate>
+                <DataTemplate x:DataType="vm:TrackVoiceViewModel">
+                  <c:TrackVoicePanel/>
+                </DataTemplate>
+              </ContentControl.ContentTemplate>
+            </ContentControl>
+          </Border>
+        </Grid>
+      </Border>
+      <!--Function bar, pinned to the right edge of the window so it stays put
+          no matter which page the carousel shows. More entries can be appended
+          to this StackPanel as they are added.-->
+      <Border Grid.Row="0" Grid.Column="3" Width="32"
+              Background="{DynamicResource SystemControlBackgroundBaseLowBrush}"
+              BorderBrush="{DynamicResource SystemControlForegroundBaseMediumBrush}"
+              BorderThickness="1,0,0,0">
+        <StackPanel Orientation="Vertical" Margin="0,4">
+          <ToggleButton x:Name="PreferencesButton" Classes="normal" Background="Transparent"
+                        Width="26" Height="26" Margin="2" Padding="0"
+                        HorizontalAlignment="Center" VerticalAlignment="Center"
+                        HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                        IsChecked="{Binding IsPreferencesPanelOpen, Mode=OneWay}"
+                        Click="OnTogglePreferencesPanel"
+                        ToolTip.Tip="{DynamicResource menu.tools.prefs}">
+            <Path Height="18" Width="18"
+                  Data="M9.001425 11.34a2.35 2.35 0 0 1-2.34-2.34 2.35 2.35 0 0 1 2.34-2.34 2.35 2.35 0 0 1 2.35 2.34 2.35 2.35 0 0 1-2.35 2.35m4.98-1.7a5.2 5.2 0 0 0 0-1.32l1.41-1.1c.13-.1.16-.27.08-.42l-1.34-2.32a.33.33 0 0 0-.4-.15l-1.67.67a4.86 4.86 0 0 0-1.14-.65l-.25-1.78a.34.34 0 0 0-.33-.28h-2.68c-.17 0-.3.12-.33.28l-.25 1.78c-.42.16-.79.4-1.14.65l-1.66-.67a.33.33 0 0 0-.41.15l-1.34 2.32a.33.33 0 0 0 .08.43l1.41 1.09a5.73 5.73 0 0 0 0 1.32l-1.41 1.11a.33.33 0 0 0-.08.43l1.34 2.32c.08.15.26.2.4 0.15l1.67-.68c.35.27.71.5 1.14.66l.25 1.78c.02.16.16.28.33.28h2.68c.17 0 .3-.12.33-.28l.25-1.78c.42-.17.79-.4 1.14-.66l1.66.68c.15.05.33 0 .41-.15l1.34-2.32a.34.34 0 0 0-.08-.43l-1.41-1.1z"
+                  Fill="{StaticResource NeutralAccentBrush}"/>
+          </ToggleButton>
+          <ToggleButton x:Name="VoiceButton" Classes="normal" Background="Transparent"
+                        Width="26" Height="26" Margin="2" Padding="0"
+                        HorizontalAlignment="Center" VerticalAlignment="Center"
+                        HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                        IsChecked="{Binding IsVoicePanelOpen, Mode=OneWay}"
+                        Click="OnToggleVoicePanel"
+                        ToolTip.Tip="{DynamicResource tracks.voice}">
+            <Path Height="18" Width="18"
+                  Data="M12,2A3,3 0 0,1 15,5V11A3,3 0 0,1 9,11V5A3,3 0 0,1 12,2M19,11C19,14.53 16.39,17.44 13,17.93V21H11V17.93C7.61,17.44 5,14.53 5,11H7A5,5 0 0,0 12,16A5,5 0 0,0 17,11H19Z"
+                  Fill="{StaticResource NeutralAccentBrush}"/>
+          </ToggleButton>
+        </StackPanel>
+      </Border>
     </Grid>
   </Grid>
 </Window>

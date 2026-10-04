@@ -235,6 +235,11 @@ namespace OpenUtau.Core.Ustx {
         public virtual int PortraitHeight { get; }
         public virtual string Sample { get; }
         public virtual string DefaultPhonemizer { get; }
+        /// <summary>
+        /// Language codes the voicebank's models are trained on, as the voicebank itself
+        /// declares them. Empty when it does not say.
+        /// </summary>
+        public virtual IList<string> Languages => Array.Empty<string>();
         public virtual Encoding TextFileEncoding => Encoding.UTF8;
         public virtual IList<USubbank> Subbanks { get; }
         public virtual IList<UOto> Otos => emptyOtos;

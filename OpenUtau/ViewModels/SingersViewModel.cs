@@ -10,6 +10,7 @@ using DynamicData.Binding;
 using NAudio.Wave;
 using NWaves.Signals;
 using OpenUtau.Api;
+using OpenUtau.App.Controls;
 using OpenUtau.App.Views;
 using OpenUtau.Classic;
 using OpenUtau.Core;
@@ -75,13 +76,13 @@ namespace OpenUtau.App.ViewModels {
                             DocManager.Inst.ExecuteCmd(new ErrorMessageNotification(e));
                         }
                     } else {
-                        DocManager.Inst.ExecuteCmd(new LoadingNotification(typeof(SingersDialog), true, "singer"));
+                        DocManager.Inst.ExecuteCmd(new LoadingNotification(typeof(SingersEditorWindow), true, "singer"));
                         try {
                             AttachSinger();
                         } catch (Exception e) {
                             DocManager.Inst.ExecuteCmd(new ErrorMessageNotification(e));
                         } finally {
-                            DocManager.Inst.ExecuteCmd(new LoadingNotification(typeof(SingersDialog), false, "singer"));
+                            DocManager.Inst.ExecuteCmd(new LoadingNotification(typeof(SingersEditorWindow), false, "singer"));
                         }
                     }
                     void AttachSinger() {
@@ -229,6 +230,16 @@ namespace OpenUtau.App.ViewModels {
             }
         }
 
+        public static void ShowSearchTermsDialog(Avalonia.Controls.Window owner, USinger singer, Action<string> onFinish) {
+            var dialog = new TypeInDialog() {
+                Title = $"{ThemeManager.GetString("tracks.searchterms")}: {singer.LocalizedName}",
+            };
+            dialog.SetPrompt(ThemeManager.GetString("tracks.searchterms.prompt"));
+            dialog.SetText(string.Join(", ", singer.SearchTerms));
+            dialog.onFinish = onFinish;
+            dialog.ShowDialog(owner);
+        }
+
         public static void SetSearchTerms(USinger singer, string text) {
             var terms = SplitSearchTerms(text);
             try {
@@ -282,7 +293,7 @@ namespace OpenUtau.App.ViewModels {
                 return;
             }
             Task task = Task.Run(() => {
-                DocManager.Inst.ExecuteCmd(new LoadingNotification(typeof(SingersDialog), true, "singer error report"));
+                DocManager.Inst.ExecuteCmd(new LoadingNotification(typeof(SingersEditorWindow), true, "singer error report"));
                 var checker = new VoicebankErrorChecker(Singer.Location, Singer.BasePath);
                 checker.Check();
                 string outFile = Path.Combine(Singer.Location, "errors.txt");
@@ -307,7 +318,7 @@ namespace OpenUtau.App.ViewModels {
                 OS.GotoFile(outFile);
             });
             task.ContinueWith(task => {
-                DocManager.Inst.ExecuteCmd(new LoadingNotification(typeof(SingersDialog), false, "singer error report"));
+                DocManager.Inst.ExecuteCmd(new LoadingNotification(typeof(SingersEditorWindow), false, "singer error report"));
                 if (task.IsFaulted && task.Exception != null) {
                     DocManager.Inst.ExecuteCmd(new ErrorMessageNotification(task.Exception));
                 }
@@ -337,7 +348,7 @@ namespace OpenUtau.App.ViewModels {
             if (Singer != null) {
                 singerId = Singer.Id;
             }
-            DocManager.Inst.ExecuteCmd(new LoadingNotification(typeof(SingersDialog), true, "singer"));
+            DocManager.Inst.ExecuteCmd(new LoadingNotification(typeof(SingersEditorWindow), true, "singer"));
             SingerManager.Inst.SearchAllSingers();
             this.RaisePropertyChanged(nameof(Singers));
             if (!string.IsNullOrEmpty(singerId) && SingerManager.Inst.Singers.TryGetValue(singerId, out var singer)) {
@@ -346,7 +357,7 @@ namespace OpenUtau.App.ViewModels {
                 Singer = Singers.FirstOrDefault();
             }
             DocManager.Inst.ExecuteCmd(new SingersRefreshedNotification());
-            DocManager.Inst.ExecuteCmd(new LoadingNotification(typeof(SingersDialog), false, "singer"));
+            DocManager.Inst.ExecuteCmd(new LoadingNotification(typeof(SingersEditorWindow), false, "singer"));
         }
 
         Bitmap? LoadAvatar(USinger singer) {

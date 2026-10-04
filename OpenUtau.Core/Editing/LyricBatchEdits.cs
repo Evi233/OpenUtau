@@ -4,6 +4,7 @@ using System.Text.RegularExpressions;
 using OpenUtau.Api;
 using OpenUtau.Core.Format.MusicXMLSchema;
 using OpenUtau.Core.Ustx;
+using OpenUtau.Core.Util;
 using Serilog;
 using WanaKanaNet;
 
@@ -173,7 +174,7 @@ namespace OpenUtau.Core.Editing {
 
             docManager.StartUndoGroup("command.batch.lyric", true);
             foreach (var note in notes) {
-                if (phoneticHintPattern.IsMatch(note.lyric) || note.lyric.StartsWith("+")) { // break out of loop for notes with hint
+                if (phoneticHintPattern.IsMatch(note.lyric) || NoteLyricUtils.IsExtensionLyric(note.lyric)) { // break out of loop for notes with hint
                     continue;
                 }
 
@@ -282,7 +283,7 @@ namespace OpenUtau.Core.Editing {
             foreach(var note in part.notes.Where(n => n.position >= startPos)){
                 lyricsQueue.Enqueue(note.lyric);
                 if(selectedNotes.Contains(note)){
-                    docManager.ExecuteCmd(new ChangeNoteLyricCommand(part, note, "+~"));
+                    docManager.ExecuteCmd(new ChangeNoteLyricCommand(part, note, NoteLyricUtils.ExtensionLyricForWrite()));
                 } else {
                     docManager.ExecuteCmd(new ChangeNoteLyricCommand(part, note, lyricsQueue.Dequeue()));
                 }

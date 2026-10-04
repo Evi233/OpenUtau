@@ -172,7 +172,7 @@ namespace OpenUtau.Core.Util {
             public int? PlaybackDeviceIndex;
             public bool ShowPrefs = true;
             public bool ShowTips = true;
-            public string ThemeName = "Light";
+            public string ThemeName = "Dark";
             public int DegreeStyle;
             public bool UseTrackColor = false;
             public bool ClearCacheOnQuit = false;
@@ -249,6 +249,17 @@ namespace OpenUtau.Core.Util {
             public Dictionary<string, string> DefaultWavtools = new Dictionary<string, string>();
             public string LyricHelper = string.Empty;
             public bool LyricsHelperBrackets = false;
+            /// <summary>
+            /// Write and accept "-" as the vowel extension marker instead of "+~".
+            /// Off by default; see <see cref="NoteLyricUtils"/>.
+            /// </summary>
+            public bool UseDashExtension = false;
+            /// <summary>
+            /// Let the user write "br" as the breath lyric, which is resolved to
+            /// "AP" before the model sees it. Off by default; see
+            /// <see cref="NoteLyricUtils"/>.
+            /// </summary>
+            public bool BreathAsBr = false;
             public int OtoEditor = 0;
             public string VLabelerPath = string.Empty;
             public string SetParamPath = string.Empty;

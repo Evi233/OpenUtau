@@ -352,7 +352,7 @@ namespace OpenUtau.App.Controls {
 
         async void OnMenuSingers(object sender, RoutedEventArgs args) {
             if (MainWindow != null) {
-                await MainWindow.OpenSingersWindowAsync();
+                await MainWindow.OpenSingersEditorWindowAsync(SingersEditorTab.Oto);
             }
             RootWindow.Activate();
             try {
@@ -1316,7 +1316,7 @@ namespace OpenUtau.App.Controls {
                             Integrations.VLabelerClient.Inst.GotoOto(singer, hitAliasInfo.phoneme.oto);
                         } else {
                             if (MainWindow != null) {
-                                await MainWindow.OpenSingersWindowAsync();
+                                await MainWindow.OpenSingersEditorWindowAsync(SingersEditorTab.Oto);
                             }
                             RootWindow.Activate();
                             DocManager.Inst.ExecuteCmd(new GotoOtoNotification(singer, hitAliasInfo.phoneme.oto));
