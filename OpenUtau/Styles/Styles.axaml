@@ -377,6 +377,35 @@
     <Setter Property="Fill" Value="{DynamicResource NeutralAccentBrush}" />
   </Style>
 
+  <!-- The ruler's scroll bar also shows which part of the timeline is on screen: a rounded
+       groove that is always drawn, an accent thumb, and no arrow buttons. The template parts
+       have no style classes, so they are named here rather than matched by class. -->
+  <Style Selector="ScrollBar.music.rangeStrip /template/ Rectangle#TrackRect">
+    <Setter Property="Fill" Value="{DynamicResource NeutralAccentBrushSemi2}"/>
+    <Setter Property="RadiusX" Value="4"/>
+    <Setter Property="RadiusY" Value="4"/>
+  </Style>
+  <Style Selector="ScrollBar.music.rangeStrip /template/ Thumb">
+    <Setter Property="Background" Value="{DynamicResource AccentBrush1}"/>
+    <Setter Property="CornerRadius" Value="4"/>
+  </Style>
+  <Style Selector="ScrollBar.music.rangeStrip /template/ Thumb /template/ Border">
+    <Setter Property="Background" Value="{DynamicResource AccentBrush1}"/>
+    <Setter Property="CornerRadius" Value="4"/>
+  </Style>
+  <Style Selector="ScrollBar.music.rangeStrip /template/ Thumb:pointerover">
+    <Setter Property="Background" Value="{DynamicResource AccentBrush1}"/>
+  </Style>
+  <Style Selector="ScrollBar.music.rangeStrip /template/ Thumb:pointerover /template/ Border">
+    <Setter Property="Background" Value="{DynamicResource AccentBrush1}"/>
+  </Style>
+  <Style Selector="ScrollBar.music.rangeStrip /template/ RepeatButton#PART_LineUpButton">
+    <Setter Property="IsVisible" Value="False"/>
+  </Style>
+  <Style Selector="ScrollBar.music.rangeStrip /template/ RepeatButton#PART_LineDownButton">
+    <Setter Property="IsVisible" Value="False"/>
+  </Style>
+
   <Style Selector="HeaderedContentControl.groupbox">
     <Setter Property="Margin" Value="5"/>
     <Setter Property="Background" Value="{StaticResource SystemControlBackgroundAltHighBrush}"/>

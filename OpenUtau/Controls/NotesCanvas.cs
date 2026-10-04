@@ -530,6 +530,19 @@ namespace OpenUtau.App.Controls {
             return brush;
         }
 
+        // As in OpenSV, a note is outlined a quarter brighter than its fill, and its
+        // lyric is a near black that reads on the accent fill in either theme.
+        private readonly Dictionary<IBrush, IPen> noteBorderPens = new();
+        private static readonly IBrush NoteTextBrush = new SolidColorBrush(Color.Parse("#202020"));
+
+        private IPen NoteBorderPen(IBrush brush) {
+            if (!noteBorderPens.TryGetValue(brush, out var pen)) {
+                pen = new Pen(BlendBrush(brush, Brushes.White, 0.25f), 1);
+                noteBorderPens[brush] = pen;
+            }
+            return pen;
+        }
+
         private static float MoveTowards(float value, float target, float delta) =>
             Math.Abs(target - value) <= delta ? target : value + Math.Sign(target - value) * delta;
 
@@ -573,7 +586,7 @@ namespace OpenUtau.App.Controls {
                     brush = BlendBrush(brush, hasError ? ThemeManager.AccentBrush3Semi : ThemeManager.AccentBrush2, highlight);
                 }
             }
-            context.DrawRectangle(brush, null, new Rect(leftTop, rightBottom), 2, 2);
+            context.DrawRectangle(brush, NoteBorderPen(brush), new Rect(leftTop, rightBottom), 2, 2);
             if (Preferences.Default.NoteHoverGlow) {
                 DrawHoverGlow(context, leftTop, size, 2, brush, GetHoverGlow(note));
             }
@@ -651,17 +664,17 @@ namespace OpenUtau.App.Controls {
             }
             string displayLyric = note.lyric;
             int txtsize = 12;
-            var textLayout = TextLayoutCache.Get(displayLyric, Brushes.White, txtsize);
+            var textLayout = TextLayoutCache.Get(displayLyric, NoteTextBrush, txtsize);
             if (txtsize > size.Height) {
                 return;
             }
             if (textLayout.Height + 5 < size.Height) {
                 txtsize = (int)(12 * (size.Height / textLayout.Height));
-                textLayout = TextLayoutCache.Get(displayLyric, Brushes.White, txtsize);
+                textLayout = TextLayoutCache.Get(displayLyric, NoteTextBrush, txtsize);
             }
             if (textLayout.Width + 5 > size.Width) {
                 displayLyric = displayLyric[0] + "..";
-                textLayout = TextLayoutCache.Get(displayLyric, Brushes.White, txtsize);
+                textLayout = TextLayoutCache.Get(displayLyric, NoteTextBrush, txtsize);
                 if (textLayout.Width + 5 > size.Width) {
                     return;
                 }

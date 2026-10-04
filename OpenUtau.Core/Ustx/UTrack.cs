@@ -89,7 +89,7 @@ namespace OpenUtau.Core.Ustx {
         [YamlIgnore] public string PhonemizerTag => Phonemizer.Tag;
         [YamlIgnore] public int TrackNo { set; get; }
         public string TrackName { get; set; } = "New Track";
-        public string TrackColor { get; set; } = "Blue";
+        public string TrackColor { get; set; } = "Green";
         [YamlIgnore] public bool Muted { set; get; }
         public bool Mute { get; set; }
         public bool Solo { get; set; }

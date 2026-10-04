@@ -140,16 +140,18 @@
                    Color="{DynamicResource AccentColor3}" />
   <SolidColorBrush x:Key="AccentBrush3Semi"
                    Color="{DynamicResource AccentColor3}" Opacity="0.5" />
+  <!-- The accent of the default track colour, until ChangePianorollColor replaces
+       these with the selected track's own. -->
   <SolidColorBrush x:Key="SelectedTrackAccentBrush"
-                   Color="#4EA6EA" />
+                   Color="#80AD30" />
   <SolidColorBrush x:Key="SelectedTrackAccentLightBrush"
-                   Color="#90CAF9" />
+                   Color="#A8C772" />
   <SolidColorBrush x:Key="SelectedTrackAccentLightBrushSemi"
-                   Color="#90CAF9" Opacity="0.5"/>
+                   Color="#A8C772" Opacity="0.5"/>
   <SolidColorBrush x:Key="SelectedTrackAccentDarkBrush"
-                   Color="#1E88E5" />
+                   Color="#5A7922" />
   <SolidColorBrush x:Key="SelectedTrackCenterKeyBrush"
-                   Color="#C8E5FC" />
+                   Color="#D9E8BC" />
   <SolidColorBrush x:Key="WarningBrush"
                    Color="{DynamicResource WarningColor}" />
 

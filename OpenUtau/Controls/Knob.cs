@@ -7,7 +7,7 @@ using Avalonia.Media;
 namespace OpenUtau.App.Controls {
     /// <summary>
     /// Rotary knob.  Drag vertically to turn (Shift for fine), mouse wheel or
-    /// arrow keys to step, double-click to reset to <see cref="DefaultValue"/>.
+    /// arrow keys to step, double-click or right-click to reset to <see cref="DefaultValue"/>.
     /// Sweeps 270° from 7:30 (Minimum) to 4:30 (Maximum).  Tick dots light
     /// up from the origin to the value; the origin is 0 when the range spans
     /// zero (e.g. ±12 dB), else Minimum.
@@ -47,6 +47,9 @@ namespace OpenUtau.App.Controls {
 
         const double SweepDegrees = 270;
         const int TickCount = 21;
+        // Below this size the tick dots are bigger than the gaps between them, so they
+        // are left out and only the pointer shows the value.
+        const double TickMinSize = 36;
         // Pixels of vertical drag for a full sweep.
         const double DragPixels = 200;
         const double FineFactor = 0.1;
@@ -80,7 +83,15 @@ namespace OpenUtau.App.Controls {
 
         protected override void OnPointerPressed(PointerPressedEventArgs e) {
             base.OnPointerPressed(e);
-            if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) {
+            var properties = e.GetCurrentPoint(this).Properties;
+            if (properties.IsRightButtonPressed) {
+                // Right-click resets, like the faders this replaced.
+                Value = Math.Clamp(DefaultValue, Minimum, Maximum);
+                Focus();
+                e.Handled = true;
+                return;
+            }
+            if (!properties.IsLeftButtonPressed) {
                 return;
             }
             if (e.ClickCount == 2) {
@@ -175,11 +186,13 @@ namespace OpenUtau.App.Controls {
             double origin = Minimum < 0 && Maximum > 0 ? -Minimum / Range : 0;
             double litFrom = Math.Min(origin, t) - 1e-6, litTo = Math.Max(origin, t) + 1e-6;
             double dot = Math.Max(1.2, size / 44);
-            for (int i = 0; i < TickCount; i++) {
-                double ti = (double)i / (TickCount - 1);
-                var brush = ti >= litFrom && ti <= litTo ? TickActiveBrush : TickBrush;
-                if (brush != null) {
-                    context.DrawEllipse(brush, null, PointAt(center, tickRadius, ti), dot, dot);
+            if (size >= TickMinSize) {
+                for (int i = 0; i < TickCount; i++) {
+                    double ti = (double)i / (TickCount - 1);
+                    var brush = ti >= litFrom && ti <= litTo ? TickActiveBrush : TickBrush;
+                    if (brush != null) {
+                        context.DrawEllipse(brush, null, PointAt(center, tickRadius, ti), dot, dot);
+                    }
                 }
             }
 

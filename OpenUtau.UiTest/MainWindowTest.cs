@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -253,6 +254,35 @@ namespace OpenUtau.UiTest {
             });
         }
 
+        // The panel is built the first time it is opened, so a selection made before that raised
+        // no event it could hear: opening it must show the track the arrangement has selected,
+        // not the project's first track.
+        [Fact]
+        public void VoicePanelOpensOnTheSelectedTrack() {
+            WithMainWindow(nameof(VoicePanelOpensOnTheSelectedTrack), window => WithFakeSingers(1, Array.Empty<int>(), Array.Empty<int>(), singers => {
+                Click(window, FindButtonWithText(window, "welcome.new"));
+                var tracks = ViewModelOf(window).TracksViewModel;
+                var project = DocManager.Inst.Project;
+                DocManager.Inst.StartUndoGroup("command.track.add");
+                DocManager.Inst.ExecuteCmd(new AddTrackCommand(project, new UTrack(project) { TrackNo = 1 }));
+                DocManager.Inst.EndUndoGroup();
+                tracks.Tracks[1].Singer = singers[0];
+                tracks.SelectTrack(tracks.Tracks[1]);
+                HeadlessUi.Flush();
+
+                // Nothing has opened the panel yet, which is exactly why the selection above
+                // could not reach it.
+                Assert.Null(ViewModelOf(window).VoiceViewModel);
+                Click(window, window.FindControl<ToggleButton>("VoiceButton")!);
+
+                var voice = ViewModelOf(window).VoiceViewModel;
+                Assert.NotNull(voice);
+                Assert.Same(tracks.Tracks[1], voice!.Track);
+                Assert.True(voice.HasSinger);
+                Assert.Same(singers[0], voice.Singer);
+            }));
+        }
+
         // "What does this engine support" is the whole point of the parameter list: a Classic
         // track offers the classic renderer's parameters, and the ones it cannot use are absent.
         [Fact]
@@ -405,6 +435,176 @@ namespace OpenUtau.UiTest {
                 Assert.DoesNotContain(window.FindResource("tracks.removefromrecent"), headers);
                 Assert.Contains(window.FindResource("tracks.removefromrecent"), MenuHeaders(singers[5]));
             }));
+        }
+
+        // Finds a track header and the menu on it, and opens that menu with a right-click on
+        // empty row space (the knobs reset on right-click, so they must not be hit).
+        static ContextMenu OpenTrackRowMenu(Window window, TrackHeader header) {
+            var point = header.TranslatePoint(
+                new Point(header.Bounds.Width / 2, header.Bounds.Height - 10), window)!.Value;
+            window.MouseDown(point, MouseButton.Right);
+            window.MouseUp(point, MouseButton.Right);
+            HeadlessUi.Flush();
+            return header.GetVisualDescendants().OfType<Grid>()
+                .First(grid => grid.ContextMenu != null).ContextMenu!;
+        }
+
+        static MenuItem MenuItemWithHeader(Window window, object header) =>
+            window.GetVisualDescendants().OfType<MenuItem>().First(item => Equals(item.Header, header));
+
+        // Two clicks with nothing in between, so the gesture recognizer counts them as one
+        // double-click.
+        static void DoubleClick(Window window, Control control) {
+            var point = control.TranslatePoint(
+                new Point(control.Bounds.Width / 2, control.Bounds.Height / 2), window)!.Value;
+            for (int i = 0; i < 2; i++) {
+                window.MouseDown(point, MouseButton.Left);
+                window.MouseUp(point, MouseButton.Left);
+            }
+            HeadlessUi.Flush();
+        }
+
+        // The time signature and the tempo sit in the ruler's left end to be read, so they open
+        // their editors on a double-click only.
+        [Fact]
+        public void RulerNumbersEditOnDoubleClick() {
+            WithMainWindow(nameof(RulerNumbersEditOnDoubleClick), window => {
+                Click(window, FindButtonWithText(window, "welcome.new"));
+                var timeSignature = window.FindControl<TextBlock>("TimeSignatureText")!;
+                var tempo = window.FindControl<TextBlock>("TempoText")!;
+                AssertHasSize(timeSignature);
+                AssertHasSize(tempo);
+
+                Click(window, timeSignature);
+                Assert.Empty(window.OwnedWindows);
+
+                DoubleClick(window, timeSignature);
+                Assert.IsType<TimeSignatureDialog>(Assert.Single(window.OwnedWindows)).Close();
+                HeadlessUi.Flush();
+
+                DoubleClick(window, tempo);
+                Assert.IsType<TypeInDialog>(Assert.Single(window.OwnedWindows)).Close();
+                HeadlessUi.Flush();
+            });
+        }
+
+        // The renderer picker and the track settings dialog live in the row's menu now, and
+        // both need a voicebank: without one they are there but greyed out.
+        [Fact]
+        public void TrackRowMenuOffersRendererAndSettings() {
+            WithMainWindow(nameof(TrackRowMenuOffersRendererAndSettings), window =>
+                WithFakeSingers(1, Array.Empty<int>(), Array.Empty<int>(), singers => {
+                    Click(window, FindButtonWithText(window, "welcome.new"));
+                    var header = window.GetVisualDescendants().OfType<TrackHeader>().First();
+                    var viewModel = header.ViewModel!;
+                    var rendererHeader = window.FindResource("tracks.selectrenderer")!;
+                    var settingsHeader = window.FindResource("tracks.tracksettings")!;
+
+                    OpenTrackRowMenu(window, header);
+                    Assert.False(MenuItemWithHeader(window, rendererHeader).IsEnabled);
+                    Assert.False(MenuItemWithHeader(window, settingsHeader).IsEnabled);
+                    // The list is rebuilt when the menu opens, so nothing is listed without a voicebank.
+                    Assert.Empty(viewModel.RenderersMenuItems!);
+                    window.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null);
+                    HeadlessUi.Flush();
+
+                    viewModel.SelectSingerCommand.Execute(singers[0]).Subscribe();
+                    HeadlessUi.Flush();
+                    Assert.True(viewModel.HasSinger);
+                    OpenTrackRowMenu(window, header);
+                    Assert.True(MenuItemWithHeader(window, rendererHeader).IsEnabled);
+                    Assert.True(MenuItemWithHeader(window, settingsHeader).IsEnabled);
+                    Assert.NotEmpty(viewModel.RenderersMenuItems!);
+                    var submenu = MenuItemWithHeader(window, rendererHeader);
+                    Assert.Equal(viewModel.RenderersMenuItems!.Count,
+                        Assert.IsAssignableFrom<IEnumerable>(submenu.ItemsSource).Cast<object>().Count());
+                }));
+        }
+
+        // The arrangement menu sits at the top of the track column and drives the selected
+        // track, so its commands work even for a track scrolled out of the canvas.
+        [Fact]
+        public void ArrangementMenuAddsATrack() {
+            WithMainWindow(nameof(ArrangementMenuAddsATrack), window => {
+                Click(window, FindButtonWithText(window, "welcome.new"));
+                var tracks = ViewModelOf(window).TracksViewModel;
+                var count = tracks.Tracks.Count;
+                var button = window.FindControl<Button>("ArrangementMenuButton");
+                AssertHasSize(button);
+
+                Click(window, button!);
+                Click(window, MenuItemWithHeader(window, window.FindResource("command.track.add")!));
+                Assert.Equal(count + 1, tracks.Tracks.Count);
+                Assert.Equal(count + 1, window.GetVisualDescendants().OfType<TrackHeader>().Count());
+            });
+        }
+
+        // The row keeps its shape at the smallest track height: the voicebank line and the fx
+        // button fold away, the name, the knobs and mute/solo stay.
+        [Fact]
+        public void TrackRowSurvivesTheSmallHeight() {
+            WithMainWindow(nameof(TrackRowSurvivesTheSmallHeight), window => {
+                Click(window, FindButtonWithText(window, "welcome.new"));
+                ViewModelOf(window).TracksViewModel.SetTrackHeight(44);
+                HeadlessUi.Flush();
+
+                var header = window.GetVisualDescendants().OfType<TrackHeader>().Single();
+                AssertHasSize(header);
+                Assert.False(header.ViewModel!.IsSingerVisible);
+                Assert.False(header.ViewModel.IsFxVisible);
+                AssertHasSize(header.FindControl<Button>("TrackNameButton"));
+                var knobs = header.GetVisualDescendants().OfType<Knob>().ToList();
+                Assert.Equal(2, knobs.Count);
+                Assert.All(knobs, AssertHasSize);
+                Assert.All(header.GetVisualDescendants().OfType<ToggleButton>(), AssertHasSize);
+                AssertRendered(window);
+            });
+        }
+
+        // The default row is the compact one the arrangement layout is modelled on: 300 wide and
+        // 64 tall, which still leaves room for every control, so nothing folds away.
+        [Fact]
+        public void DefaultTrackRowIsCompactAndComplete() {
+            WithMainWindow(nameof(DefaultTrackRowIsCompactAndComplete), window => {
+                Click(window, FindButtonWithText(window, "welcome.new"));
+                Assert.Equal(64d, ViewModelOf(window).TracksViewModel.TrackHeight);
+                HeadlessUi.Flush();
+
+                var header = window.GetVisualDescendants().OfType<TrackHeader>().Single();
+                AssertHasSize(header);
+                Assert.True(header.ViewModel!.IsSingerVisible);
+                Assert.True(header.ViewModel.IsFxVisible);
+                AssertHasSize(header.FindControl<Button>("TrackNameButton"));
+                AssertHasSize(header.FindControl<Button>("SingerButton"));
+                Assert.All(header.GetVisualDescendants().OfType<Knob>().ToList(), AssertHasSize);
+                AssertRendered(window);
+            });
+        }
+
+        // The volume and pan knobs replaced the faders: the value shows in the hover tip, and
+        // a right-click (like the double-click) puts it back to the default.
+        [Fact]
+        public void TrackKnobsResetOnRightClick() {
+            WithMainWindow(nameof(TrackKnobsResetOnRightClick), window => {
+                Click(window, FindButtonWithText(window, "welcome.new"));
+                var header = window.GetVisualDescendants().OfType<TrackHeader>().First();
+                var knob = header.GetVisualDescendants().OfType<Knob>().First();
+                var track = DocManager.Inst.Project.tracks[0];
+
+                knob.Value = 7;
+                HeadlessUi.Flush();
+                Assert.Equal(7, track.Volume);
+                Assert.Contains("+07.0", ToolTip.GetTip(knob) as string);
+
+                var point = knob.TranslatePoint(
+                    new Point(knob.Bounds.Width / 2, knob.Bounds.Height / 2), window)!.Value;
+                window.MouseDown(point, MouseButton.Right);
+                window.MouseUp(point, MouseButton.Right);
+                HeadlessUi.Flush();
+                Assert.Equal(0, knob.Value);
+                Assert.Equal(0, track.Volume);
+                Assert.Contains("+00.0", ToolTip.GetTip(knob) as string);
+            });
         }
     }
 }

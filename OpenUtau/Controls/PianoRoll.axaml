@@ -55,6 +55,7 @@
                  LargeChange="{Binding ViewportTracks}"
                  SmallChange="{Binding SmallChangeY}" PointerWheelChanged="VScrollPointerWheelChanged"/>
       <c:TrackBackground Grid.Column="0" Grid.Row="3" IsPianoRoll="True" IsKeyboard="True"
+                         ClipToBounds="True"
                          DataContext="{Binding NotesViewModel}"
                          TrackHeight="{Binding TrackHeight}"
                          TrackOffset="{Binding TrackOffset}"
@@ -298,11 +299,6 @@
               <MenuItem Header="{DynamicResource prefs.appearance.showghostnotes}" Click="OnMenuShowGhostNotes">
                 <MenuItem.Icon>
                   <CheckBox IsChecked="{Binding ShowGhostNotes}" />
-                </MenuItem.Icon>
-              </MenuItem>
-              <MenuItem Header="{DynamicResource prefs.appearance.detachpianoroll}" Click="OnMenuDetachPianoRoll">
-                <MenuItem.Icon>
-                  <CheckBox IsChecked="{Binding PianoRollDetached}" />
                 </MenuItem.Icon>
               </MenuItem>
               <MenuItem Header="{DynamicResource prefs.appearance.trackcolor}" Click="OnMenuUseTrackColor">
@@ -600,7 +596,7 @@
               </Grid>
             </ToggleButton>
             <!-- Hide PianoRoll Padding -->
-            <Border IsVisible="{Binding HideMenuItemVisible}">
+            <Border>
               <Border Width="20" IsVisible="{Binding !NotesViewModel.ShowNoteParams}"/>
             </Border>
           </StackPanel>
@@ -699,7 +695,6 @@
               HorizontalAlignment="Right" VerticalAlignment="Top"
               Height="20" Width="20" Padding="1"
               Click="OnHidePianoRoll"
-              IsVisible="{Binding HideMenuItemVisible}"
               ToolTip.Tip="{DynamicResource pianoroll.toggle.hidepianoroll}">
         <Grid Width="18" Height="18">
           <Path Stroke="{DynamicResource SystemControlForegroundBaseHighBrush}" StrokeThickness="1" Data="M 4 4 L 14 14 M 14 4 L 4 14"/>
@@ -755,7 +750,6 @@
           <TextBlock Name="ValueTipText" Margin="2"/>
         </Border>
       </Canvas>
-      <ProgressBar Grid.Row="6" Grid.ColumnSpan="4" Value="{Binding Progress}" IsVisible="{Binding PianoRollDetached}"/>
     </Grid>
   </Border>
 </UserControl>

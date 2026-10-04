@@ -67,8 +67,6 @@ namespace OpenUtau.App.ViewModels {
         public bool PlaybackAutoScroll0 { get => Preferences.Default.PlaybackAutoScroll == 0 ? true : false; }
         public bool PlaybackAutoScroll1 { get => Preferences.Default.PlaybackAutoScroll == 1 ? true : false; }
         public bool PlaybackAutoScroll2 { get => Preferences.Default.PlaybackAutoScroll == 2 ? true : false; }
-        public bool PianoRollDetached { get => Preferences.Default.DetachPianoRoll; }
-        public bool HideMenuItemVisible => !Preferences.Default.DetachPianoRoll;
         public bool ShowPhonemizerTags {
             get => Preferences.Default.ShowPhonemizerTags;
             set {
@@ -98,7 +96,6 @@ namespace OpenUtau.App.ViewModels {
         public Dictionary<Key, MenuItemViewModel> LegacyPluginShortcuts { get; private set; }
             = new Dictionary<Key, MenuItemViewModel>();
 
-        [Reactive] public partial double Progress { get; set; }
         [Reactive] public partial bool CanUndo { get; set; } = false;
         [Reactive] public partial bool CanRedo { get; set; } = false;
         [Reactive] public partial string UndoText { get; set; } = ThemeManager.GetString("menu.edit.undo");
@@ -308,13 +305,6 @@ namespace OpenUtau.App.ViewModels {
         #region ICmdSubscriber
 
         public void OnNext(UCommand cmd, bool isUndo) {
-            if (cmd is ProgressBarNotification progressBarNotification) {
-                if (PianoRollDetached) {
-                    Dispatcher.UIThread.InvokeAsync(() => {
-                        Progress = progressBarNotification.Progress;
-                    }, DispatcherPriority.Background);
-                }
-            }
             SetUndoState();
         }
 

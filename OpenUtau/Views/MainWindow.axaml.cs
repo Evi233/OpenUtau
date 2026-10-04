@@ -42,7 +42,6 @@ namespace OpenUtau.App.Views {
         private readonly ZoomGlide xZoom;
         private readonly ValueGlide trackHeight;
 
-        private PianoRollDetachedWindow? pianoRollWindow;
         private PianoRoll? pianoRoll;
         private WindowNotificationManager notificationManager;
 
@@ -146,7 +145,9 @@ namespace OpenUtau.App.Views {
             viewModel.InitProject(this);
         }
 
-        void OnEditTimeSignature(object sender, PointerPressedEventArgs args) {
+        // The ruler's two numbers are read far more often than they are changed, so a single
+        // click leaves them alone and a double-click opens the editor.
+        void OnEditTimeSignature(object sender, TappedEventArgs args) {
             var project = DocManager.Inst.Project;
             var timeSig = project.timeSignatures[0];
             var dialog = new TimeSignatureDialog(timeSig.beatPerBar, timeSig.beatUnit);
@@ -158,7 +159,7 @@ namespace OpenUtau.App.Views {
             args.Pointer.Capture(null);
         }
 
-        void OnEditBpm(object sender, PointerPressedEventArgs args) {
+        void OnEditBpm(object sender, TappedEventArgs args) {
             var project = DocManager.Inst.Project;
             var dialog = new TypeInDialog();
             dialog.Title = "BPM";
@@ -628,7 +629,16 @@ namespace OpenUtau.App.Views {
             // Built before showing the panel so it is never briefly rendered with
             // a null DataContext. It reads the selected track and loads no
             // voicebank, so there is nothing to wait for.
-            viewModel.VoiceViewModel ??= new TrackVoiceViewModel();
+            if (viewModel.VoiceViewModel == null) {
+                var voiceViewModel = new TrackVoiceViewModel();
+                // The panel is built the first time it is opened, so it never heard the
+                // selection that was made before that: point it at the track the
+                // arrangement has selected now rather than at the project's first one.
+                if (viewModel.TracksViewModel.SelectedTracks.FirstOrDefault() is UTrack selected) {
+                    voiceViewModel.SelectTrack(selected);
+                }
+                viewModel.VoiceViewModel = voiceViewModel;
+            }
             viewModel.IsVoicePanelOpen = true;
         }
 
@@ -900,11 +910,51 @@ namespace OpenUtau.App.Views {
             Position = new PixelPoint(0, 0);
             Width = 1024;
             Height = 576;
-            if (pianoRollWindow != null) {
-                pianoRollWindow.WindowState = WindowState.Normal;
-                pianoRollWindow.Position = new PixelPoint(100, 100);
-                pianoRollWindow.Width = 1024;
-                pianoRollWindow.Height = 576;
+        }
+
+        // The arrangement menu acts on the selected track, which a row scrolled out of the
+        // canvas still owns: the track operations take the track itself, not a header control.
+        UTrack? SelectedTrack => viewModel.TracksViewModel.SelectedTracks.FirstOrDefault();
+
+        void OnArrangementAddTrack(object sender, RoutedEventArgs args) =>
+            viewModel.TracksViewModel.AddTrack();
+
+        void OnArrangementDuplicateTrack(object sender, RoutedEventArgs args) {
+            if (SelectedTrack is UTrack track) {
+                TrackEdits.Duplicate(track);
+            }
+        }
+
+        void OnArrangementRemoveTrack(object sender, RoutedEventArgs args) {
+            if (SelectedTrack is UTrack track) {
+                TrackEdits.Remove(track);
+            }
+        }
+
+        void OnArrangementMoveUp(object sender, RoutedEventArgs args) {
+            if (SelectedTrack is UTrack track) {
+                TrackEdits.MoveUp(track);
+            }
+        }
+
+        void OnArrangementMoveDown(object sender, RoutedEventArgs args) {
+            if (SelectedTrack is UTrack track) {
+                TrackEdits.MoveDown(track);
+            }
+        }
+
+        void OnArrangementTrackHeightSmall(object sender, RoutedEventArgs args) =>
+            viewModel.TracksViewModel.SetTrackHeight(ViewConstants.TrackHeightMin);
+
+        void OnArrangementTrackHeightNormal(object sender, RoutedEventArgs args) =>
+            viewModel.TracksViewModel.SetTrackHeight(ViewConstants.TrackHeightDefault);
+
+        void OnArrangementTrackHeightLarge(object sender, RoutedEventArgs args) =>
+            viewModel.TracksViewModel.SetTrackHeight(ViewConstants.TrackHeightMax);
+
+        void OnArrangementTrackColor(object sender, RoutedEventArgs args) {
+            if (SelectedTrack is UTrack track) {
+                TrackEdits.SelectTrackColor(track);
             }
         }
 
@@ -939,16 +989,6 @@ namespace OpenUtau.App.Views {
             // Size in logical pixels (DIPs)
             Width = x != null ? screenWidth * x.Value : screenWidth;
             Height = (y != null ? screenHeight * y.Value : screenHeight) - titleBarHeight;
-            if (pianoRollWindow != null) {
-                pianoRollWindow.WindowState = WindowState.Normal;
-                double offsetX = x != null ? this.Width : 0;
-                double offsetY = y != null ? (this.Height + titleBarHeight) : 0;
-                int physX = startX + (int)(offsetX * mainScreen.Scaling);
-                int physY = startY + (int)(offsetY * mainScreen.Scaling);
-                pianoRollWindow.Position = new PixelPoint(physX, physY);
-                pianoRollWindow.Width = x != null ? screenWidth - Width : screenWidth;
-                pianoRollWindow.Height = (y != null ? screenHeight - offsetY : screenHeight) - titleBarHeight;
-            }
         }
 
         void OnKeyDown(object sender, KeyEventArgs args) {
@@ -1471,12 +1511,7 @@ namespace OpenUtau.App.Views {
                         MainWindow = this
                     };
 
-                    if (Preferences.Default.DetachPianoRoll) {
-                        viewModel.ShowPianoRoll = false;
-                        pianoRollWindow = new(pianoRoll);
-                    } else {
-                        PianoRollContainer.Content = pianoRoll;
-                    }
+                    PianoRollContainer.Content = pianoRoll;
 
                     await Task.Run(() =>
                         pianoRoll.InitializePianoRollWindowAsync()
@@ -1485,35 +1520,11 @@ namespace OpenUtau.App.Views {
 
                     pianoRoll.ViewModel.PlaybackViewModel = viewModel.PlaybackViewModel;
                 }
-                if (pianoRollWindow != null) {
-                    pianoRollWindow.Show();
-                    pianoRollWindow.Activate();
-                } else {
-                    viewModel.ShowPianoRoll = true;
-                    pianoRoll.Focus();
-                }
+                viewModel.ShowPianoRoll = true;
+                pianoRoll.Focus();
                 int tick = viewModel.TracksViewModel.PointToTick(args.GetPosition(canvas));
                 DocManager.Inst.ExecuteCmd(new LoadPartNotification(hitPartControl.part, DocManager.Inst.Project, tick));
                 pianoRoll.AttachExpressions();
-            }
-        }
-
-        public void SetPianoRollAttachment() {
-            if (pianoRoll == null) {
-                return;
-            }
-            if (Preferences.Default.DetachPianoRoll) {
-                PianoRollContainer.Content = null;
-                viewModel.ShowPianoRoll = false;
-                if (pianoRollWindow == null) {
-                    pianoRollWindow = new(pianoRoll);
-                    pianoRollWindow.Show();
-                }
-            } else {
-                pianoRollWindow?.ForceClose();
-                pianoRollWindow = null;
-                PianoRollContainer.Content = pianoRoll;
-                viewModel.ShowPianoRoll = true;
             }
         }
 
@@ -2119,7 +2130,6 @@ namespace OpenUtau.App.Views {
                 if (!t.Result) {
                     return;
                 }
-                pianoRollWindow?.Close();
                 forceClose = true;
                 Close();
             }, TaskScheduler.FromCurrentSynchronizationContext());
@@ -2166,9 +2176,6 @@ namespace OpenUtau.App.Views {
             } else if (cmd is TrackChangeRenderSettingCommand renderSettingCmd && !isUndo) {
                 _ = PackageInstallPrompt.EnsureInstalledAsync(this, PackageRequirements.For(renderSettingCmd.track.RendererSettings), afterFailure: false);
             } else if (cmd is ToastNotification toast) {
-                if (toast.windowType == "Pianoroll" && pianoRollWindow != null) {
-                    if (pianoRollWindow.Toast(toast)) return;
-                }
                 notificationManager.Show(ToastControl.GetNotification(toast, this));
             } else if (cmd is VoiceColorRemappingNotification voicecolorNotif) {
                 if (voicecolorNotif.TrackNo < 0 || DocManager.Inst.Project.tracks.Count <= voicecolorNotif.TrackNo) {

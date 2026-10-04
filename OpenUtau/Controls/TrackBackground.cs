@@ -107,10 +107,12 @@ namespace OpenUtau.App.Controls {
                 var brush = isCenterKey ? ThemeManager.CenterKeyBrush
                     : IsKeyboard ? (isAltTrack ? ThemeManager.BlackKeyBrush : ThemeManager.WhiteKeyBrush)
                     : isAltTrack ? Foreground : Background;
-                context.DrawRectangle(
-                    brush,
-                    null,
-                    new Rect(0, (int)top, Bounds.Width, TrackHeight));
+                // OpenSV rounds the keys at their front edge only: the rectangle runs past
+                // the left edge, which ClipToBounds cuts off.
+                var rect = IsKeyboard
+                    ? new Rect(-3, (int)top, Bounds.Width + 3, TrackHeight)
+                    : new Rect(0, (int)top, Bounds.Width, TrackHeight);
+                context.DrawRectangle(brush, null, rect, IsKeyboard ? 3 : 0, IsKeyboard ? 3 : 0);
                 if (IsKeyboard && TrackHeight >= 12) {
                     brush = isCenterKey ? ThemeManager.CenterKeyNameBrush
                         : isAltTrack ? ThemeManager.BlackKeyNameBrush

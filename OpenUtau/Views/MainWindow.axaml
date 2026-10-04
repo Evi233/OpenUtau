@@ -221,27 +221,35 @@
             <RowDefinition Height="4"/>
           </Grid.RowDefinitions>
           <Panel Grid.Row="1" Grid.Column="0" HorizontalAlignment="Stretch" VerticalAlignment="Top" Height="24">
-            <Border Classes="playback" Width="72" HorizontalAlignment="Left" Margin="4,0">
-              <Grid>
-                <TextBlock Width="28" HorizontalAlignment="Left"
-                          Background="Transparent" PointerPressed="OnEditTimeSignature">
-                  <TextBlock.Text>
-                    <MultiBinding StringFormat="{}{0}/{1}">
-                      <Binding Path="PlaybackViewModel.BeatPerBar"/>
-                      <Binding Path="PlaybackViewModel.BeatUnit"/>
-                    </MultiBinding>
-                  </TextBlock.Text>
-                </TextBlock>
-                <TextBlock Width="42" HorizontalAlignment="Right"
-                            Background="Transparent" PointerPressed="OnEditBpm" PointerWheelChanged="OnEditBpmScroll">
-                  <TextBlock.Text>
-                    <MultiBinding StringFormat="{}{0:#0.00}">
-                      <Binding Path="PlaybackViewModel.Bpm"/>
-                    </MultiBinding>
-                  </TextBlock.Text>
-                </TextBlock>
-              </Grid>
-            </Border>
+            <!-- The arrangement menu: track operations that do not belong on a single row. -->
+            <Button Name="ArrangementMenuButton" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="3,0,0,0"
+                    Width="24" Height="22" Padding="0" Background="Transparent" BorderThickness="0" Focusable="False"
+                    ToolTip.Tip="{DynamicResource tracks.arrangement}">
+              <Path Stroke="{Binding $parent[Window].Foreground}" StrokeThickness="1.6" StrokeLineCap="Round"
+                    Width="14" Height="14" Stretch="None"
+                    Data="M0.5,2 H13.5 M0.5,7 H13.5 M0.5,12 H13.5"/>
+              <Button.Flyout>
+                <MenuFlyout Placement="BottomEdgeAlignedLeft">
+                  <MenuItem Header="{DynamicResource command.track.add}" Click="OnArrangementAddTrack"/>
+                  <MenuItem Header="{DynamicResource tracks.duplicate}" Click="OnArrangementDuplicateTrack"/>
+                  <MenuItem Header="{DynamicResource tracks.remove}" Click="OnArrangementRemoveTrack"/>
+                  <MenuItem Header="-" Height="1"/>
+                  <MenuItem Header="{DynamicResource tracks.moveup}" Click="OnArrangementMoveUp"/>
+                  <MenuItem Header="{DynamicResource tracks.movedown}" Click="OnArrangementMoveDown"/>
+                  <MenuItem Header="-" Height="1"/>
+                  <MenuItem Header="{DynamicResource tracks.trackheight}">
+                    <MenuItem Header="{DynamicResource tracks.trackheight.small}" Click="OnArrangementTrackHeightSmall"/>
+                    <MenuItem Header="{DynamicResource tracks.trackheight.normal}" Click="OnArrangementTrackHeightNormal"/>
+                    <MenuItem Header="{DynamicResource tracks.trackheight.large}" Click="OnArrangementTrackHeightLarge"/>
+                  </MenuItem>
+                  <MenuItem Header="{DynamicResource tracks.showpianoroll}" ToggleType="CheckBox"
+                            IsChecked="{Binding ShowPianoRoll, Mode=TwoWay}"/>
+                  <MenuItem Header="{DynamicResource tracks.trackcolor}" Click="OnArrangementTrackColor"/>
+                  <MenuItem Header="-" Height="1"/>
+                  <MenuItem Header="{DynamicResource menu.tools.layout.reset}" Click="OnMenuLayoutReset"/>
+                </MenuFlyout>
+              </Button.Flyout>
+            </Button>
             <Border Classes="playback" HorizontalAlignment="Center">
               <StackPanel Orientation="Horizontal">
                 <Button Command="{Binding PlaybackViewModel.SeekStart}" Height="18">
@@ -278,7 +286,7 @@
               </Grid>
             </Border>
           </Panel>
-          <ScrollBar Name="HScrollBar" Classes="music" Grid.Row="0" Grid.Column="1" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+          <ScrollBar Name="HScrollBar" Classes="music rangeStrip" Grid.Row="0" Grid.Column="1" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
                     Margin="0,4,0,4" Orientation="Horizontal" AllowAutoHide="False"
                     DataContext="{Binding TracksViewModel}"
                     Maximum="{Binding HScrollBarMax, Mode=OneWay}"
@@ -341,6 +349,32 @@
                             SnapDiv="{Binding TracksViewModel.SnapDiv}"
                             SnapTicks="{Binding TracksViewModel.SnapTicks}"
                             ShowBar="True"/>
+          <!-- Time signature and tempo, pinned to the left end of the ruler. Its opaque background
+               covers the copy TickBackground draws at tick 0, so they are not shown twice.
+               Double-clicking either number opens its editor; the wheel over the tempo nudges it. -->
+          <Border Classes="playback" Grid.Row="1" Grid.Column="1" Width="72" HorizontalAlignment="Left"
+                  VerticalAlignment="Center" Margin="4,0"
+                  Background="{DynamicResource SystemControlBackgroundAltHighBrush}">
+            <Grid>
+              <TextBlock Name="TimeSignatureText" Width="28" HorizontalAlignment="Left"
+                        Background="Transparent" DoubleTapped="OnEditTimeSignature">
+                <TextBlock.Text>
+                  <MultiBinding StringFormat="{}{0}/{1}">
+                    <Binding Path="PlaybackViewModel.BeatPerBar"/>
+                    <Binding Path="PlaybackViewModel.BeatUnit"/>
+                  </MultiBinding>
+                </TextBlock.Text>
+              </TextBlock>
+              <TextBlock Name="TempoText" Width="42" HorizontalAlignment="Right"
+                          Background="Transparent" DoubleTapped="OnEditBpm" PointerWheelChanged="OnEditBpmScroll">
+                <TextBlock.Text>
+                  <MultiBinding StringFormat="{}{0:#0.00}">
+                    <Binding Path="PlaybackViewModel.Bpm"/>
+                  </MultiBinding>
+                </TextBlock.Text>
+              </TextBlock>
+            </Grid>
+          </Border>
           <c:PartsCanvas x:Name="partsCanvas" Grid.Row="2" Grid.Column="1" ClipToBounds="True" Background="Transparent"
                         DataContext="{Binding TracksViewModel}"
                         TickWidth="{Binding TickWidth}"

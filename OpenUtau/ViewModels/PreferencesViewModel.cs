@@ -119,7 +119,6 @@ namespace OpenUtau.App.ViewModels {
         [Reactive] public partial bool ReduceAnimations { get; set; }
         [Reactive] public partial bool ShowPlaybackNoteHighlight { get; set; }
         [Reactive] public partial bool ShowPlaybackNoteBounce { get; set; }
-        [Reactive] public partial bool DetachPianoRoll { get; set; }
         public bool ThemeEditable => themeEditable.Value;
         public List<string> ThemeItems => ThemeManager.GetAvailableThemes();
         public bool IsThemeEditorOpen => Views.ThemeEditorWindow.IsOpen;
@@ -253,7 +252,6 @@ namespace OpenUtau.App.ViewModels {
             ReduceAnimations = Preferences.Default.ReduceAnimations;
             ShowPlaybackNoteHighlight = Preferences.Default.ShowPlaybackNoteHighlight;
             ShowPlaybackNoteBounce = Preferences.Default.ShowPlaybackNoteBounce;
-            DetachPianoRoll = Preferences.Default.DetachPianoRoll;
             Channel = Preferences.Default.Channel switch {
                 "beta" => 1,
                 "alpha" => 2,
@@ -410,13 +408,6 @@ namespace OpenUtau.App.ViewModels {
                     Preferences.Default.ShowPlaybackNoteBounce = showPlaybackNoteBounce;
                     Preferences.Save();
                     MessageBus.Current.SendMessage(new PianorollRefreshEvent("PlaybackNoteBounce"));
-                });
-            this.WhenAnyValue(vm => vm.DetachPianoRoll)
-                .Skip(1)
-                .Subscribe(detachPianoRoll => {
-                    Preferences.Default.DetachPianoRoll = detachPianoRoll;
-                    Preferences.Save();
-                    MessageBus.Current.SendMessage(new PianorollRefreshEvent("Attachment"));
                 });
             PersistOn(this.WhenAnyValue(vm => vm.Channel), channel => {
                 Preferences.Default.Channel = channel switch {

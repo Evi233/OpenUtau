@@ -329,10 +329,6 @@
           <TextBlock Text="{DynamicResource prefs.appearance.reduceanimations}" HorizontalAlignment="Left"/>
           <ToggleSwitch IsChecked="{Binding ReduceAnimations}"/>
         </Grid>
-        <Grid Margin="0,5,0,0">
-          <TextBlock Text="{DynamicResource prefs.appearance.detachpianoroll}" HorizontalAlignment="Left"/>
-          <ToggleSwitch IsChecked="{Binding DetachPianoRoll}"/>
-        </Grid>
       </StackPanel>
 
       <!-- UTAU -->

@@ -62,7 +62,7 @@ namespace OpenUtau.App {
                 new TrackColor("Orange", "#FF8A65", "#FF7043", "#FFAB91", "#FFD5C8"),
                 new TrackColor("Yellow", "#FBC02D", "#F9A825", "#FDD835", "#FEF1B6"),
                 new TrackColor("Light Green", "#CDDC39", "#C0CA33", "#DCE775", "#F2F7CE"),
-                new TrackColor("Green", "#66BB6A", "#43A047", "#A5D6A7", "#D2EBD3"),
+                new TrackColor("Green", "#80AD30", "#5A7922", "#A8C772", "#D9E8BC"),
                 new TrackColor("Light Blue", "#4FC3F7", "#29B6F6", "#81D4FA", "#C0EAFD"),
                 new TrackColor("Blue", "#4EA6EA", "#1E88E5", "#90CAF9", "#C8E5FC"),
                 new TrackColor("Purple", "#BA68C8", "#AB47BC", "#CE93D8", "#E7C9EC"),
@@ -292,7 +292,7 @@ namespace OpenUtau.App {
             if (TrackColors.Any(c => c.Name == name)) {
                 return TrackColors.First(c => c.Name == name);
             }
-            return TrackColors.First(c => c.Name == "Blue");
+            return TrackColors.First(c => c.Name == "Green");
         }
     }
 

@@ -2,49 +2,54 @@
                     xmlns:system="clr-namespace:System;assembly=mscorlib"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
   <system:Boolean x:Key="IsDarkMode">true</system:Boolean>
-  
-  <Color x:Key="BackgroundColor">#201D26</Color>
-  <Color x:Key="BackgroundColorPointerOver">#312C3A</Color>
-  <Color x:Key="BackgroundColorPressed">#433D4F</Color>
-  <Color x:Key="BackgroundColorDisabled">#27242E</Color>
 
-  <Color x:Key="ForegroundColor">#CDCAD4</Color>
-  <Color x:Key="ForegroundColorPointerOver">#E9E6F0</Color>
+  <!-- The palette of OpenSV: #2D2D2D background, #383838 panel, #454545 raised,
+       #D7D7D7 text, #999999 subdued, #80AD30 accent. -->
+  <Color x:Key="BackgroundColor">#2D2D2D</Color>
+  <Color x:Key="BackgroundColorPointerOver">#383838</Color>
+  <Color x:Key="BackgroundColorPressed">#454545</Color>
+  <Color x:Key="BackgroundColorDisabled">#262626</Color>
+
+  <Color x:Key="ForegroundColor">#D7D7D7</Color>
+  <Color x:Key="ForegroundColorPointerOver">#F0F0F0</Color>
   <Color x:Key="ForegroundColorPressed">#FFFFFF</Color>
-  <Color x:Key="ForegroundColorDisabled">#7E778C</Color>
+  <Color x:Key="ForegroundColorDisabled">#6E6E6E</Color>
 
-  <Color x:Key="BorderColor">#544E60</Color>
-  <Color x:Key="BorderColorPointerOver">#878096</Color>
+  <!-- Also the secondary text colour, so this is OpenSV's subdued grey rather than
+       the near-black it uses for panel borders. -->
+  <Color x:Key="BorderColor">#999999</Color>
+  <Color x:Key="BorderColorPointerOver">#C4C4C4</Color>
 
-  <Color x:Key="SystemAccentColor">#4EA6EA</Color>
+  <Color x:Key="SystemAccentColor">#80AD30</Color>
   <!-- PointerOver -->
-  <Color x:Key="SystemAccentColorLight1">#90CAF9</Color>
+  <Color x:Key="SystemAccentColorLight1">#A8C772</Color>
   <!-- Pressed -->
-  <Color x:Key="SystemAccentColorDark1">#1E88E5</Color>
+  <Color x:Key="SystemAccentColorDark1">#5F8A24</Color>
 
-  <Color x:Key="NeutralAccentColor">#878096</Color>
-  <Color x:Key="NeutralAccentColorPointerOver">#B0ABBC</Color>
-  <Color x:Key="AccentColor1">#4EA6EA</Color>
-  <Color x:Key="AccentColor2">#FF679D</Color>
-  <Color x:Key="AccentColor3">#FF679D</Color>
+  <Color x:Key="NeutralAccentColor">#999999</Color>
+  <Color x:Key="NeutralAccentColorPointerOver">#C4C4C4</Color>
+  <Color x:Key="AccentColor1">#80AD30</Color>
+  <!-- Selected notes and parts: the accent mixed with white, as OpenSV does. -->
+  <Color x:Key="AccentColor2">#A8C772</Color>
+  <Color x:Key="AccentColor3">#E0574C</Color>
 
-  <Color x:Key="TickLineColor">#504A5C</Color>
-  <Color x:Key="BarNumberColor">#B0ABBC</Color>
-  <Color x:Key="FinalPitchColor">#C0BACD</Color>
-  <Color x:Key="TrackBackgroundAltColor">#282431</Color>
-  
+  <Color x:Key="TickLineColor">#484848</Color>
+  <Color x:Key="BarNumberColor">#999999</Color>
+  <Color x:Key="FinalPitchColor">#8D948C</Color>
+  <Color x:Key="TrackBackgroundAltColor">#272727</Color>
+
   <Color x:Key="WarningColor">#433519</Color>
 
   <!--Keyboard Background-->
-  <Color x:Key="WhiteKeyColorLeft">#CC2A63</Color>
-  <Color x:Key="WhiteKeyColorRight">#FF347C</Color>
-  <Color x:Key="WhiteKeyNameColor">#FFFFFF</Color>
+  <Color x:Key="WhiteKeyColorLeft">#B7B7B7</Color>
+  <Color x:Key="WhiteKeyColorRight">#B7B7B7</Color>
+  <Color x:Key="WhiteKeyNameColor">#606060</Color>
 
-  <Color x:Key="CenterKeyColorLeft">#CCA5B0</Color>
-  <Color x:Key="CenterKeyColorRight">#FFCEDC</Color>
-  <Color x:Key="CenterKeyNameColor">#FF347C</Color>
+  <Color x:Key="CenterKeyColorLeft">#CFCFCF</Color>
+  <Color x:Key="CenterKeyColorRight">#CFCFCF</Color>
+  <Color x:Key="CenterKeyNameColor">#4A4A4A</Color>
 
-  <Color x:Key="BlackKeyColorLeft">Transparent</Color>
-  <Color x:Key="BlackKeyColorRight">Transparent</Color>
-  <Color x:Key="BlackKeyNameColor">#CDCAD4</Color>
+  <Color x:Key="BlackKeyColorLeft">#202020</Color>
+  <Color x:Key="BlackKeyColorRight">#202020</Color>
+  <Color x:Key="BlackKeyNameColor">#B7B7B7</Color>
 </ResourceDictionary>

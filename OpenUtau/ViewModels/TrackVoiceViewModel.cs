@@ -205,7 +205,12 @@ namespace OpenUtau.App.ViewModels {
             }
         }
 
-        void SelectTrack(UTrack? track) {
+        /// <summary>
+        /// Points the panel at a track. Called from the selection event, and once by the
+        /// main window at open, because the panel is built on first use and a selection
+        /// made before that raised no event it could hear.
+        /// </summary>
+        public void SelectTrack(UTrack? track) {
             Track = track;
             this.RaisePropertyChanged(nameof(Track));
             Refresh();

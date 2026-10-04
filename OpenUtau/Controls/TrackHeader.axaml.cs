@@ -1,8 +1,8 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
@@ -81,10 +81,9 @@ namespace OpenUtau.App.Controls {
             Canvas.SetLeft(this, 0);
             Canvas.SetTop(this, Offset.Y + (track?.TrackNo ?? 0) * trackHeight);
             if (ViewModel != null) {
+                // The voicebank line and the fx button fold away on short tracks.
                 ViewModel.IsSingerVisible = trackHeight >= ViewConstants.TrackHeightDelta * 3;
-                ViewModel.IsPhonemizerVisible = trackHeight >= ViewConstants.TrackHeightDelta * 4;
-                ViewModel.IsRendererVisible = trackHeight >= ViewConstants.TrackHeightDelta * 5;
-                ViewModel.AvatarHeight = Math.Min(trackHeight - (ViewConstants.TrackHeightDefault - 100), 100);
+                ViewModel.IsFxVisible = trackHeight >= ViewConstants.TrackHeightDelta * 3;
             }
         }
 
@@ -124,11 +123,6 @@ namespace OpenUtau.App.Controls {
             }
             try {
                 Control anchor = SingerButton;
-                if (sender != SingerButton) {
-                    // Opened from the "⋯" flyout: close it and anchor to its button instead of stacking flyouts.
-                    MoreButton.Flyout?.Hide();
-                    anchor = MoreButton;
-                }
                 var viewModel = new SingerFlyoutViewModel(() => ViewModel.Singer, ViewModel.SelectSingerCommand);
                 var content = new SingerFlyout() { DataContext = viewModel };
                 var flyout = new Flyout() {
@@ -147,54 +141,9 @@ namespace OpenUtau.App.Controls {
             }
         }
 
-        void PhonemizerButtonClicked(object sender, RoutedEventArgs args) {
-            ViewModel?.RefreshPhonemizers();
-            PhonemizersMenu.Open((Control)sender);
-            args.Handled = true;
-        }
-
-        void PhonemizerButtonContextRequested(object sender, ContextRequestedEventArgs args) {
-            args.Handled = true;
-        }
-
-        void RendererButtonClicked(object sender, RoutedEventArgs args) {
+        // The renderer list depends on the singer, so it is rebuilt when the menu opens.
+        void TrackContextMenuOpening(object? sender, CancelEventArgs args) {
             ViewModel?.RefreshRenderers();
-            if (ViewModel?.RenderersMenuItems?.Count > 0) {
-                RenderersMenu.Open((Control)sender);
-            }
-            args.Handled = true;
-        }
-
-        void RendererButtonContextRequested(object sender, ContextRequestedEventArgs args) {
-            args.Handled = true;
-        }
-
-        void VolumeFaderPointerPressed(object sender, PointerPressedEventArgs args) {
-            if (args.GetCurrentPoint((Visual?)sender).Properties.IsRightButtonPressed && ViewModel != null) {
-                ViewModel.Volume = 0;
-                args.Handled = true;
-            }
-        }
-
-        void PanFaderPointerPressed(object sender, PointerPressedEventArgs args) {
-            if (args.GetCurrentPoint((Visual?)sender).Properties.IsRightButtonPressed && ViewModel != null) {
-                ViewModel.Pan = 0;
-                args.Handled = true;
-            }
-        }
-
-        void VolumeFaderContextRequested(object sender, ContextRequestedEventArgs args) {
-            if (ViewModel != null) {
-                ViewModel.Volume = 0;
-            }
-            args.Handled = true;
-        }
-
-        void PanFaderContextRequested(object sender, ContextRequestedEventArgs args) {
-            if (ViewModel != null) {
-                ViewModel.Pan = 0;
-            }
-            args.Handled = true;
         }
 
         async void TrackSettingsButtonClicked(object sender, RoutedEventArgs args) {
@@ -204,48 +153,6 @@ namespace OpenUtau.App.Controls {
                     await dialog.ShowDialog(window);
                 }
             }
-        }
-
-        void VolumePointerPressed(object sender, PointerPressedEventArgs args) {
-            if (args.ClickCount == 2 && ViewModel != null) {
-                ActivateVolumeOrPanTextBox(
-                    VolumeTextBox, string.Format("{0:0.0}", ViewModel.Volume));
-                args.Handled = true;
-                args.Pointer.Capture(sender as IInputElement);
-            }
-        }
-        void PanPointerPressed(object sender, PointerPressedEventArgs args) {
-            if (args.ClickCount == 2 && ViewModel != null) {
-                ActivateVolumeOrPanTextBox(
-                    PanTextBox, string.Format("{0:0}", ViewModel.Pan));
-                args.Handled = true;
-            }
-        }
-        void VolumeOrPanTextBoxKeyDown(object sender, KeyEventArgs args) {
-            if (args.Key == Key.Enter) {
-                FinishVolumeOrPanInput(sender, true);
-                args.Handled = true;
-            } else if (args.Key == Key.Escape) {
-                FinishVolumeOrPanInput(sender, false);
-                args.Handled = true;
-            }
-        }
-        void VolumeOrPanTextBoxLostFocus(object sender, FocusChangedEventArgs args) {
-            FinishVolumeOrPanInput(sender, true);
-            args.Handled = true;
-        }
-        void VolumeOrPanSliderValueChanged(object sender, RangeBaseValueChangedEventArgs args) {
-            VolumeTextBox.IsVisible = false;
-            VolumeTextBox.IsEnabled = false;
-            PanTextBox.IsVisible = false;
-            PanTextBox.IsEnabled = false;
-        }
-
-        void ActivateVolumeOrPanTextBox(TextBox textBox, string text) {
-            textBox.Text = text;
-            textBox.IsEnabled = true;
-            textBox.IsVisible = true;
-            textBox.Focus();
         }
 
         private void MoveHandleScrolled(object? sender, PointerWheelEventArgs e) {
@@ -299,28 +206,6 @@ namespace OpenUtau.App.Controls {
                     double position = Math.Round((point.Y + leftOver) / TrackHeight) * TrackHeight;
                     double finalPos = Math.Clamp(position - leftOver, -leftOver, maxHeight - offset);
                     Canvas.SetTop(canvas.TrackMover, finalPos);
-                }
-            }
-        }
-
-        private void FinishVolumeOrPanInput(object sender, bool commit) {
-            if (sender == VolumeTextBox) {
-                if (!VolumeTextBox.IsVisible) {
-                    return; // Avoid double commit.
-                }
-                VolumeTextBox.IsVisible = false;
-                VolumeTextBox.IsEnabled = false;
-                if (commit && double.TryParse(VolumeTextBox.Text, out var volume) && ViewModel != null) {
-                    ViewModel.Volume = Math.Clamp(volume, VolumeSlider.Minimum, VolumeSlider.Maximum);
-                }
-            } else {
-                if (!PanTextBox.IsVisible) {
-                    return; // Avoid double commit.
-                }
-                PanTextBox.IsVisible = false;
-                PanTextBox.IsEnabled = false;
-                if (commit && double.TryParse(PanTextBox.Text, out var pan) && ViewModel != null) {
-                    ViewModel.Pan = Math.Clamp(pan, PanSlider.Minimum, PanSlider.Maximum);
                 }
             }
         }

@@ -1028,6 +1028,15 @@ General
   <system:String x:Key="tracks.trackcolor">Change track color</system:String>
   <system:String x:Key="tracks.tracksettings">Track Settings</system:String>
   <system:String x:Key="tracks.voice">Voice</system:String>
+  <system:String x:Key="tracks.arrangement">Arrangement</system:String>
+  <system:String x:Key="tracks.reorder">Drag to reorder</system:String>
+  <system:String x:Key="tracks.trackheight">Track height</system:String>
+  <system:String x:Key="tracks.trackheight.small">Small</system:String>
+  <system:String x:Key="tracks.trackheight.normal">Normal</system:String>
+  <system:String x:Key="tracks.trackheight.large">Large</system:String>
+  <system:String x:Key="tracks.showpianoroll">Show piano roll</system:String>
+  <system:String x:Key="tracks.volume">Volume</system:String>
+  <system:String x:Key="tracks.pan">Pan</system:String>
 
   <FontFamily x:Key="ui.fontfamily">Segoe UI,San Francisco,Helvetica Neue</FontFamily>
 
