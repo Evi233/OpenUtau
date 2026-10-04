@@ -42,6 +42,8 @@ foreach (var box in this.GetLogicalDescendants().OfType<TextBox>()) {
             DocManager.Inst.AddSubscriber(this);
         }
 
+        private void TogglePitchModeClick(object? sender, RoutedEventArgs e) => ViewModel.TogglePitchMode();
+
         protected override void OnDataContextChanged(EventArgs e) {
             base.OnDataContextChanged(e);
             // The view model may already hold a part and a selection: the panel is seated

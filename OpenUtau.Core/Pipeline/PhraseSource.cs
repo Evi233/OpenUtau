@@ -20,6 +20,7 @@ namespace OpenUtau.Core.Pipeline {
         public readonly string Lyric;
         public readonly int Tone;
         public readonly int Tuning;
+        public readonly bool ManualPitch;
         public readonly float AdjustedTone;
         public readonly double DurationMs;
         // Index into PhraseSource.Notes, or -1.
@@ -42,6 +43,7 @@ namespace OpenUtau.Core.Pipeline {
                 : NoteLyricUtils.CanonicalTail(note.lyric);
             Tone = note.tone;
             Tuning = note.tuning;
+            ManualPitch = note.ManualPitch;
             AdjustedTone = note.AdjustedTone;
             DurationMs = axis.MsBetweenTickPos(partPosition + note.position, partPosition + note.End);
             Prev = prev;

@@ -13,6 +13,7 @@ namespace OpenUtau.Core.Render {
         public readonly string lyric;
         public readonly int tone;
         public readonly int tuning;
+        public readonly bool manualPitch;
         public readonly float adjustedTone;
 
         public readonly int position;
@@ -27,6 +28,7 @@ namespace OpenUtau.Core.Render {
             lyric = note.Lyric;
             tone = note.Tone;
             tuning = note.Tuning;
+            manualPitch = note.ManualPitch;
             adjustedTone = note.AdjustedTone;
 
             position = partPosition + note.Position - phrasePosition;

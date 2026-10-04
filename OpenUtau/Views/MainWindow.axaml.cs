@@ -73,6 +73,10 @@ namespace OpenUtau.App.Views {
                 AskIfSaveAndContinue = AskIfSaveAndContinue
             };
             InitializeComponent();
+            MainGrid.SizeChanged += (_, _) => {
+                // Keep the editor and tool strip visible; excess dock panels scroll horizontally.
+                SidePanelsViewport.MaxWidth = Math.Max(0, MainGrid.Bounds.Width - 43 - Math.Min(240, MainGrid.Bounds.Width / 2));
+            };
             Log.Information("Initialized main window component.");
 
             // Edit commands validate once per frame instead of once per pointer move.

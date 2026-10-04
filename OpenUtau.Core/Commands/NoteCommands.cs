@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using OpenUtau.Core.Ustx;
@@ -20,6 +20,18 @@ namespace OpenUtau.Core {
             Part = part;
             Notes = notes.ToArray();
         }
+    }
+
+    public class SetNoteManualPitchCommand : NoteCommand {
+        public override string ToString() => "Set note pitch mode";
+        readonly bool value;
+        readonly bool[] oldValues;
+        public SetNoteManualPitchCommand(UVoicePart part, IEnumerable<UNote> notes, bool value) : base(part, notes) {
+            this.value = value;
+            oldValues = Notes.Select(note => note.ManualPitch).ToArray();
+        }
+        public override void Execute() { foreach (var note in Notes) note.ManualPitch = value; }
+        public override void Unexecute() { for (int i = 0; i < Notes.Length; i++) Notes[i].ManualPitch = oldValues[i]; }
     }
 
     public class AddNoteCommand : NoteCommand {

@@ -16,6 +16,20 @@ using ReactiveUI.Primitives;
 namespace OpenUtau.App.ViewModels {
     public partial class NotePropertiesViewModel : ViewModelBase, ICmdSubscriber {
         public string Title { get => ThemeManager.GetString("noteproperty") + " (" + selectedNotes.Count + " notes)"; }
+        [Reactive] public partial string PitchModeText { get; set; } = "自动模式";
+        public void TogglePitchMode() {
+            if (Part == null || selectedNotes.Count == 0) return;
+            bool manual = !selectedNotes.All(note => note.ManualPitch);
+            DocManager.Inst.StartUndoGroup("command.property.edit");
+            DocManager.Inst.ExecuteCmd(new SetNoteManualPitchCommand(Part, selectedNotes, manual));
+            if (manual) {
+                foreach (var note in selectedNotes) {
+                    DocManager.Inst.ExecuteCmd(new SetCurveCommand(DocManager.Inst.Project, Part, Ustx.PITD, note.position, 0, note.End - 1, 0));
+                    DocManager.Inst.ExecuteCmd(new ClearMaskedCurveCommand(Part, Ustx.RPIT, note.position, note.End - 1));
+                }
+            }
+            DocManager.Inst.EndUndoGroup();
+        }
         [Reactive] public partial string Lyric { get; set; } = string.Empty;
         [Reactive] public partial string Tone { get; set; } = string.Empty;
         [Reactive] public partial int Tuning { get; set; }
@@ -168,6 +182,7 @@ namespace OpenUtau.App.ViewModels {
 
         // note -> panel
         private void OnSelectNotes() {
+            RefreshPitchMode();
             this.RaisePropertyChanged(nameof(Title));
             ApplyPortamentoPreset = null;
             ApplyVibratoPreset = null;
@@ -352,7 +367,11 @@ namespace OpenUtau.App.ViewModels {
         }
 
         #region ICmdSubscriber
+        private void RefreshPitchMode() {
+            PitchModeText = selectedNotes.Count > 0 && selectedNotes.All(note => note.ManualPitch) ? "手动模式" : selectedNotes.Any(note => note.ManualPitch) ? "混合模式" : "自动模式";
+        }
         public void OnNext(UCommand cmd, bool isUndo) {
+            if (cmd is SetNoteManualPitchCommand) RefreshPitchMode();
             var note = selectedNotes.FirstOrDefault();
             if (cmd is TrackChangePhonemizerCommand) {
                 RefreshPhonemizers();

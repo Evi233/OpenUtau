@@ -442,6 +442,9 @@ namespace OpenUtau.App.Views {
 
     class NoteSplitEditState : NoteEditState {
         public readonly UNote note;
+        private readonly bool exactPosition;
+        private bool Snap => !exactPosition && vm.NotesViewModel.IsSnapOn;
+        private int MinimumTicks => exactPosition ? 1 : 15;
         private UNote? newNote;
         private int oldDur;
         private float oldVibLength;
@@ -458,7 +461,8 @@ namespace OpenUtau.App.Views {
             Control control,
             PianoRollViewModel vm,
             IValueTip valueTip,
-            UNote note) : base(control, vm, valueTip) {
+            UNote note, bool exactPosition = false) : base(control, vm, valueTip) {
+            this.exactPosition = exactPosition;
             this.note = note;
             var notesVm = vm.NotesViewModel;
             if (!notesVm.Selection.Contains(note)) {
@@ -480,15 +484,15 @@ namespace OpenUtau.App.Views {
                 return;
             }
             int snapUnit = project.resolution * 4 / notesVm.SnapDiv;
-            if (note.duration <= snapUnit) {
+            if (note.duration <= (exactPosition ? 1 : snapUnit)) {
                 return;
             }
             // Nothing to split when no split point is valid (e.g. snapping is on and the
             // note is shorter than two snap units): Update() would build an invalid range.
-            int minNoteTicks = notesVm.IsSnapOn ? snapUnit : 15;
-            int maxLeftNoteTicks = notesVm.IsSnapOn && snapUnit > 0
+            int minNoteTicks = Snap ? snapUnit : MinimumTicks;
+            int maxLeftNoteTicks = Snap && snapUnit > 0
                 ? (note.duration - 1) / snapUnit * snapUnit
-                : note.duration - 15;
+                : note.duration - MinimumTicks;
             if (maxLeftNoteTicks < minNoteTicks) {
                 return;
             }
@@ -496,6 +500,7 @@ namespace OpenUtau.App.Views {
             if (newNote == null) {
                 return;
             }
+            DocManager.Inst.ExecuteCmd(new SetNoteManualPitchCommand(part, new[] { newNote }, note.ManualPitch));
             foreach (var exp in note.phonemeExpressions.OrderBy(exp => exp.index)) {
                 DocManager.Inst.ExecuteCmd(new SetNoteExpressionCommand(project, project.tracks[part.trackNo], part, newNote, exp.abbr, new float?[] { exp.value }));
             }
@@ -509,21 +514,21 @@ namespace OpenUtau.App.Views {
                 return;
             }
             int snapUnit = project.resolution * 4 / notesVm.SnapDiv;
-            int tick = notesVm.PointToTick(point);
+            int tick = exactPosition ? (int)Math.Round(point.X / notesVm.TickWidth + notesVm.TickOffset) : notesVm.PointToTick(point);
             int roundedSnappedTick = (int)Math.Round((double)tick / snapUnit) * snapUnit;
-            int deltaDuration = notesVm.IsSnapOn
+            int deltaDuration = Snap
                 ? roundedSnappedTick - note.End
                 : tick - note.End;
-            int minNoteTicks = notesVm.IsSnapOn ? snapUnit : 15;
+            int minNoteTicks = Snap ? snapUnit : MinimumTicks;
 
             int maxNegDelta = note.duration - minNoteTicks;
-            if (notesVm.IsSnapOn && snapUnit > 0) {
+            if (Snap && snapUnit > 0) {
                 maxNegDelta = (int)Math.Floor((double)maxNegDelta / snapUnit) * snapUnit;
             }
 
-            int maxNoteTicks = (notesVm.IsSnapOn && snapUnit > 0)
+            int maxNoteTicks = (Snap && snapUnit > 0)
                 ? (oldDur - 1) / snapUnit * snapUnit
-                : oldDur - 15;
+                : oldDur - MinimumTicks;
             int maxDelta = maxNoteTicks - note.duration;
             // maxNegDelta is rounded down to the grid, so the bounds can cross; fall back to
             // maxNoteTicks, the only valid split point, instead of letting Math.Clamp throw.
@@ -540,7 +545,7 @@ namespace OpenUtau.App.Views {
             if (note.duration + deltaDuration < oldDur) {
                 DocManager.Inst.ExecuteCmd(new ResizeNoteCommand(notesVm.Part, newNote, -deltaDuration));
                 DocManager.Inst.ExecuteCmd(new ResizeNoteCommand(notesVm.Part, note, deltaDuration));
-                if (note.duration > oldDur - 10) DocManager.Inst.ExecuteCmd(new ResizeNoteCommand(notesVm.Part, note, oldDur - note.duration - 10));
+                if (note.duration > oldDur - (exactPosition ? 1 : 10)) DocManager.Inst.ExecuteCmd(new ResizeNoteCommand(notesVm.Part, note, oldDur - note.duration - (exactPosition ? 1 : 10)));
                 if (note.duration + newNote.duration > oldDur) DocManager.Inst.ExecuteCmd(new ResizeNoteCommand(notesVm.Part, newNote, -(note.duration + newNote.duration - oldDur))); ;
                 DocManager.Inst.ExecuteCmd(new MoveNoteCommand(notesVm.Part, newNote, note.End - newNote.position, 0));
             }

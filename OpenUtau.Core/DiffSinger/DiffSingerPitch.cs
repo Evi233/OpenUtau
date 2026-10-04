@@ -267,6 +267,17 @@ namespace OpenUtau.Core.DiffSinger
                     pitch[i] = existingPitch[i];
                 }
             }
+            int frameOffset = 0;
+            for (int segment = 0; segment < note_dur.Count; segment++) {
+                var noteIndex = paddedToRealNoteIndex[segment];
+                if (noteIndex >= 0 && noteIndex < phrase.notes.Length && phrase.notes[noteIndex].manualPitch) {
+                    for (int frame = frameOffset; frame < Math.Min(totalFrames, frameOffset + note_dur[segment]); frame++) {
+                        pitch[frame] = phrase.notes[noteIndex].adjustedTone;
+                        retake[frame] = false;
+                    }
+                }
+                frameOffset += note_dur[segment];
+            }
             var pitchInputs = new List<NamedOnnxValue>();
             pitchInputs.Add(NamedOnnxValue.CreateFromTensor("encoder_out", encoder_out));
             pitchInputs.Add(NamedOnnxValue.CreateFromTensor("note_midi",
@@ -332,7 +343,7 @@ namespace OpenUtau.Core.DiffSinger
                     .Append((float)phrase.duration + 1)
                     .ToArray(),
                     tones = pitch_out.Append(pitch_out[^1]).ToArray(),
-                    retakeMask = retakeNoteIndexes != null ? retake.Append(retake[^1]).ToArray() : null,
+                    retakeMask = retakeNoteIndexes != null || phrase.notes.Any(note => note.manualPitch) ? retake.Append(retake[^1]).ToArray() : null,
                     voiced = voicedFrames.Length > 0
                         ? voicedFrames.Append(voicedFrames[^1]).ToArray()
                         : voicedFrames,
@@ -343,7 +354,7 @@ namespace OpenUtau.Core.DiffSinger
                     .Select(i=>(float)phrase.timeAxis.MsPosToTickPos(startMs + i*frameMs) - phrase.position)
                     .ToArray(),
                     tones = pitch_out,
-                    retakeMask = retakeNoteIndexes != null ? retake : null,
+                    retakeMask = retakeNoteIndexes != null || phrase.notes.Any(note => note.manualPitch) ? retake : null,
                     voiced = voicedFrames,
                 };
             }

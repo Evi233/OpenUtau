@@ -495,7 +495,8 @@ namespace OpenUtau.Core.Editing {
                 }
                 return;
             }
-            var notes = selectedNotes.Count > 0 ? selectedNotes : part.notes.ToList();
+            var notes = (selectedNotes.Count > 0 ? selectedNotes : part.notes.ToList()).Where(note => !note.ManualPitch).ToList();
+            if (notes.Count == 0) return;
             var positions = notes.Select(n => n.position + part.position).ToHashSet();
             var phrases = part.renderPhrases.Where(phrase => phrase.notes.Any(n => positions.Contains(phrase.position + n.position))).ToArray();
             float minPitD = -1200;

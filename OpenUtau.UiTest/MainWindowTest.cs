@@ -50,6 +50,93 @@ namespace OpenUtau.UiTest {
             });
         }
 
+        [Fact]
+        public void NoteContextMenuSplitsAtPointerAndSupportsUndo() {
+            HeadlessUi.Run(() => {
+                InitCore();
+                var project = OpenUtau.Core.Format.Ustx.Create();
+                var part = new UVoicePart { trackNo = 0, position = 0 };
+                var note = project.CreateNote(60, 0, 480);
+                part.notes.Add(note);
+                project.parts.Add(part);
+                DocManager.Inst.ExecuteCmd(new LoadProjectNotification(project));
+                var model = new PianoRollViewModel();
+                var roll = new PianoRoll(model);
+                var window = new Window { Content = roll, Width = 1000, Height = 600 };
+                try {
+                    window.Show();
+                    DocManager.Inst.ExecuteCmd(new LoadPartNotification(part, project, 0));
+                    model.EditModeIndex = 0;
+                    model.ToolIndex = 0;
+                    model.NotesViewModel.ShowPitch = false;
+                    model.NotesViewModel.ShowTips = false;
+                    model.NotesViewModel.IsSnapOn = true;
+                    model.NotesViewModel.TrackOffset += 10;
+                    HeadlessUi.Flush();
+                    var canvas = roll.GetVisualDescendants().OfType<NotesCanvas>().Single();
+                    var local = model.NotesViewModel.TickToneToPoint(173, 60) + new Vector(0, model.NotesViewModel.TrackHeight / 2);
+                    Assert.True(model.NotesViewModel.HitTest.HitTestNote(local).hitBody);
+                    Assert.True(local.Y < canvas.Bounds.Height, $"Note Y {local.Y}, canvas height {canvas.Bounds.Height}");
+                    var point = canvas.TranslatePoint(local, window)!.Value;
+                    int expected = model.NotesViewModel.PointToTick(local);
+                    window.MouseDown(point, MouseButton.Right);
+                    window.MouseUp(point, MouseButton.Right);
+                    HeadlessUi.Flush();
+                    var split = model.NotesContextMenuItems.Single(item => item.Header == "从此处分割音符");
+                    split.Command!.Execute(split.CommandParameter);
+                    HeadlessUi.Flush();
+                    Assert.Equal(2, part.notes.Count);
+                    Assert.Equal(expected, note.duration);
+                    Assert.Equal(480, part.notes.Sum(n => n.duration));
+                    DocManager.Inst.Undo();
+                    Assert.Single(part.notes);
+                    Assert.Equal(480, note.duration);
+                } finally { window.Close(); }
+            });
+        }
+
+        [Fact]
+        public void ManualPitchModeIsPerNoteAndUndoable() {
+            HeadlessUi.Run(() => {
+                InitCore();
+                var project = OpenUtau.Core.Format.Ustx.Create();
+                var part = new UVoicePart { trackNo = 0 };
+                var note = project.CreateNote(60, 0, 480);
+                var other = project.CreateNote(62, 480, 480);
+                part.notes.Add(note); part.notes.Add(other); project.parts.Add(part);
+                DocManager.Inst.ExecuteCmd(new LoadProjectNotification(project));
+                var model = new NotePropertiesViewModel();
+                model.LoadPart(part);
+                model.SelectNotes(new[] { note }, Array.Empty<UNote>());
+                model.TogglePitchMode();
+                Assert.True(note.ManualPitch);
+                Assert.False(other.ManualPitch);
+                Assert.Equal("手动模式", model.PitchModeText);
+                Assert.True(note.Clone().ManualPitch);
+                DocManager.Inst.Undo();
+                Assert.False(note.ManualPitch);
+                Assert.Equal("自动模式", model.PitchModeText);
+            });
+        }
+
+        [Fact]
+        public void AllDockPanelsKeepToolBarInsideWindow() {
+            WithMainWindow(nameof(AllDockPanelsKeepToolBarInsideWindow), window => {
+                foreach (var name in new[] { "PreferencesButton", "VoiceButton", "NotePropertiesButton", "RenderButton", "AudioExportButton" }) {
+                    Click(window, window.FindControl<ToggleButton>(name)!);
+                }
+                window.Width = 800;
+                HeadlessUi.Flush();
+                var toolbar = window.FindControl<Border>("RightToolBar")!;
+                var position = toolbar.TranslatePoint(new Point(0, 0), window)!.Value;
+                Assert.Equal(43, toolbar.Bounds.Width);
+                Assert.True(position.X + toolbar.Bounds.Width <= window.Bounds.Width + 1);
+                Assert.True(position.X >= 240);
+                var viewport = window.FindControl<ScrollViewer>("SidePanelsViewport")!;
+                Assert.True(viewport.Bounds.Width <= window.Bounds.Width - 240 - 43 + 1);
+            });
+        }
+
         static bool coreInitialized;
 
         // What SplashWindow.Start does before showing the main window, minus audio. The splash itself
@@ -410,7 +497,7 @@ namespace OpenUtau.UiTest {
 
                 Click(window, gear);
                 Assert.False(viewModel.IsPreferencesPanelOpen);
-                Assert.False(panel.IsEffectivelyVisible);
+                Assert.False(panel.GetVisualAncestors().OfType<SlidingDock>().Single().IsOpen);
             });
         }
 
@@ -472,7 +559,7 @@ namespace OpenUtau.UiTest {
 
                 Click(window, button);
                 Assert.False(viewModel.IsRenderPanelOpen);
-                Assert.False(panel.IsEffectivelyVisible);
+                Assert.False(panel.GetVisualAncestors().OfType<SlidingDock>().Single().IsOpen);
                 HeadlessUi.Flush();
                 Assert.NotEqual(OpenUtau.App.ThemeManager.AccentBrush1.ToString(), icon.Fill!.ToString());
                 Click(window, window.FindControl<ToggleButton>("PreferencesButton")!);
@@ -558,7 +645,7 @@ namespace OpenUtau.UiTest {
 
                 Click(window, voice);
                 Assert.False(viewModel.IsVoicePanelOpen);
-                Assert.False(panel.IsEffectivelyVisible);
+                Assert.False(panel.GetVisualAncestors().OfType<SlidingDock>().Single().IsOpen);
             });
         }
 

@@ -924,6 +924,26 @@ namespace OpenUtau.App.Controls {
                         ViewModel.NotesViewModel.SelectNote(hitInfo.note, false);
                     }
                     if (ViewModel.NotesViewModel.Selection.Count > 0) {
+                        var splitNote = hitInfo.note;
+                        var splitPosition = point.Position;
+                        int splitTick = (int)Math.Round(splitPosition.X / ViewModel.NotesViewModel.TickWidth + ViewModel.NotesViewModel.TickOffset);
+                        if (splitNote != null && splitTick > splitNote.position && splitTick < splitNote.End) {
+                            ViewModel.NotesContextMenuItems.Add(new MenuItemViewModel() {
+                                Header = "从此处分割音符",
+                                Command = ReactiveCommand.Create(() => {
+                                    var part = ViewModel.NotesViewModel.Part;
+                                    if (part == null || !part.notes.Contains(splitNote)) return;
+                                    var state = new NoteSplitEditState(control, ViewModel, this, splitNote, exactPosition: true);
+                                    state.Begin(point.Pointer, splitPosition);
+                                    try {
+                                        state.Update(point.Pointer, splitPosition);
+                                    } finally {
+                                        state.End(point.Pointer, splitPosition);
+                                    }
+                                }),
+                            });
+                        }
+
                         ViewModel.NotesContextMenuItems.Add(new MenuItemViewModel() {
                             Header = ThemeManager.GetString("context.note.copy"),
                             Command = ViewModel.NoteCopyCommand,

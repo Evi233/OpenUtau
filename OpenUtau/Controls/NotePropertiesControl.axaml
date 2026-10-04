@@ -21,6 +21,8 @@
 
   <Grid>
     <TextBlock Text="{Binding Title}" Height="24" Padding="4" HorizontalAlignment="Left" VerticalAlignment="Top"/>
+    <Button Name="PitchModeButton" Content="{Binding PitchModeText}" IsEnabled="{Binding IsNoteSelected}" Click="TogglePitchModeClick"
+            HorizontalAlignment="Right" VerticalAlignment="Top" Margin="4,0" Height="28"/>
     <ScrollViewer Margin="0,48,0,0" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto" AllowAutoHide="True">
       <StackPanel Margin="0">
         <Expander Header="{DynamicResource noteproperty.basic}" HorizontalAlignment="Stretch" Margin="0,0,4,2">

@@ -25,12 +25,17 @@
     <Style Selector="ToggleButton.dockButton:checked /template/ ContentPresenter#PART_ContentPresenter">
       <Setter Property="Background" Value="Transparent"/>
     </Style>
+    <Style Selector="ToggleButton.dockButton:pointerover /template/ ContentPresenter#PART_ContentPresenter, ToggleButton.dockButton:checked:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="Transparent"/>
+    </Style>
+    <Style Selector="ToggleButton.dockButton:pointerover Path"><Setter Property="Fill" Value="{DynamicResource NeutralAccentBrush}"/></Style>
+    <Style Selector="ToggleButton.dockButton:checked:pointerover Path"><Setter Property="Fill" Value="{DynamicResource AccentBrush1}"/></Style>
     <Style Selector="Button,ToggleButton">
       <Setter Property="Focusable" Value="False"/>
     </Style>
   </Window.Styles>
   <Grid>
-    <Grid Name="MainGrid" Margin="{Binding $parent[Window].WindowDecorationMargin}" ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto,Auto">
+    <Grid Name="MainGrid" Margin="{Binding $parent[Window].WindowDecorationMargin}" ColumnDefinitions="*,Auto,43">
       <Menu Grid.Row="0" Grid.Column="0" VerticalAlignment="Top" HorizontalAlignment="Left" Height="24"
                 Opened="OnMainMenuOpened" Closed="OnMainMenuClosed" PointerExited="OnMainMenuPointerLeave"
                 ZIndex="1">
@@ -481,8 +486,11 @@
       </Carousel>
       <!--Settings panel, opened from the gear in the function bar. The column
           is Auto sized, so hiding the Border collapses it to nothing.-->
-      <Border Grid.Row="0" Grid.Column="1" Width="340"
-              IsVisible="{Binding IsPreferencesPanelOpen}"
+      <ScrollViewer Name="SidePanelsViewport" Grid.Column="1" HorizontalScrollBarVisibility="Auto"
+                    VerticalScrollBarVisibility="Disabled" ClipToBounds="True">
+        <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,Auto">
+      <c:SlidingDock Grid.Column="0" ExpandedWidth="340" IsOpen="{Binding IsPreferencesPanelOpen}">
+      <Border Width="340" HorizontalAlignment="Left"
               Background="{DynamicResource SystemControlBackgroundAltHighBrush}"
               BorderBrush="{DynamicResource SystemControlForegroundBaseMediumBrush}"
               BorderThickness="1,0,0,0">
@@ -518,11 +526,12 @@
           </Border>
         </Grid>
       </Border>
+      </c:SlidingDock>
       <!--Voice panel, opened from the voice button in the function bar, and
           independent of the settings panel next to it. It edits the selected
           track, so it follows the track selection rather than a global singer.-->
-      <Border Grid.Row="0" Grid.Column="2" Width="300"
-              IsVisible="{Binding IsVoicePanelOpen}"
+      <c:SlidingDock Grid.Column="1" ExpandedWidth="300" IsOpen="{Binding IsVoicePanelOpen}">
+      <Border Width="300" HorizontalAlignment="Left"
               Background="{DynamicResource SystemControlBackgroundAltHighBrush}"
               BorderBrush="{DynamicResource SystemControlForegroundBaseMediumBrush}"
               BorderThickness="1,0,0,0">
@@ -558,11 +567,12 @@
           </Border>
         </Grid>
       </Border>
+      </c:SlidingDock>
       <!--Note properties, opened from the note properties button in the function bar. It edits
           whichever notes the piano roll has selected, so it follows the note selection rather
           than the part that happens to be open.-->
-      <Border Grid.Row="0" Grid.Column="3" Width="400"
-              IsVisible="{Binding IsNotePropertiesPanelOpen}"
+      <c:SlidingDock Grid.Column="2" ExpandedWidth="400" IsOpen="{Binding IsNotePropertiesPanelOpen}">
+      <Border Width="400" HorizontalAlignment="Left"
               Background="{DynamicResource SystemControlBackgroundAltHighBrush}"
               BorderBrush="{DynamicResource SystemControlForegroundBaseMediumBrush}"
               BorderThickness="1,0,0,0">
@@ -597,8 +607,9 @@
           </Border>
         </Grid>
       </Border>
-      <Border Grid.Row="0" Grid.Column="4" Width="340"
-              IsVisible="{Binding IsRenderPanelOpen}"
+      </c:SlidingDock>
+      <c:SlidingDock Grid.Column="3" ExpandedWidth="340" IsOpen="{Binding IsRenderPanelOpen}">
+      <Border Width="340" HorizontalAlignment="Left"
               Background="{DynamicResource SystemControlBackgroundAltHighBrush}"
               BorderBrush="{DynamicResource SystemControlForegroundBaseMediumBrush}"
               BorderThickness="1,0,0,0">
@@ -634,10 +645,12 @@
           </Border>
         </Grid>
       </Border>
+      </c:SlidingDock>
       <!--Function bar, pinned to the right edge of the window so it stays put
           no matter which page the carousel shows. More entries can be appended
           to this StackPanel as they are added.-->
-      <Border Grid.Row="0" Grid.Column="5" Width="340" IsVisible="{Binding IsAudioExportPanelOpen}"
+      <c:SlidingDock Grid.Column="4" ExpandedWidth="340" IsOpen="{Binding IsAudioExportPanelOpen}">
+      <Border Width="340" HorizontalAlignment="Left"
               Background="{DynamicResource SystemControlBackgroundBaseLowBrush}"
               BorderBrush="{DynamicResource SystemControlForegroundBaseMediumBrush}" BorderThickness="1,0,0,0">
         <Grid RowDefinitions="32,*">
@@ -656,11 +669,14 @@
           </Border>
         </Grid>
       </Border>
-      <Border Grid.Row="0" Grid.Column="6" Width="43"
+      </c:SlidingDock>
+        </Grid>
+      </ScrollViewer>
+      <Border Name="RightToolBar" Grid.Row="0" Grid.Column="2" Width="43"
               Background="{DynamicResource SystemControlBackgroundBaseLowBrush}"
               BorderBrush="{DynamicResource SystemControlForegroundBaseMediumBrush}"
               BorderThickness="1,0,0,0">
-        <StackPanel Orientation="Vertical" Margin="0,4">
+        <StackPanel Orientation="Vertical" Margin="0,32,0,4">
           <ToggleButton x:Name="VoiceButton" Classes="normal dockButton" Background="Transparent"
                         Width="35" Height="44" Margin="2,8" Padding="0"
                         HorizontalAlignment="Center" VerticalAlignment="Center"
