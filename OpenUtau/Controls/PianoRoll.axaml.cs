@@ -70,8 +70,7 @@ namespace OpenUtau.App.Controls {
             xZoom = smoothViewport.Zoom((position, delta) => ViewModel.NotesViewModel.OnXZoomed(position, delta));
             yZoom = smoothViewport.Zoom((position, delta) => ViewModel.NotesViewModel.OnYZoomed(position, delta));
             ValueTip.IsVisible = false;
-            SetPenToolIcon();
-            penTool.AddHandler(PointerPressedEvent, OnToolButtonPointerPressed, RoutingStrategies.Tunnel | RoutingStrategies.Bubble, true);
+
             this.LayoutUpdated += PianoRollLayoutUpdated;
         }
 
@@ -730,24 +729,23 @@ namespace OpenUtau.App.Controls {
 
         private void NotesCanvasLeftPointerPressed(Control control, PointerPoint point, PointerPressedEventArgs args) {
             EditTools tool = ViewModel.EditTool.CurrentTool;
-            // Pitch Tools (PITD)
-            if (ViewModel.EditTool.IsPitchTool) {
-                ViewModel.NotesViewModel.DeselectNotes();
-                if (args.KeyModifiers != cmdKey) {
-                    bool overwrite = ViewModel.EditTool.OverwritePitch;
-                    if (tool == EditTools.DrawPitchTool) {
-                        editState = new DrawPitchState(control, ViewModel, this, overwrite);
-                    } else if (tool == EditTools.PitchLineTool) {
-                        editState = new PitchCurveState(control, ViewModel, this, PitchPreviewLine, PitchCurveState.CurveMode.Line, overwrite);
-                    } else if (tool == EditTools.PitchSCurveTool) {
-                        editState = new PitchCurveState(control, ViewModel, this, PitchPreviewLine, PitchCurveState.CurveMode.SCurve, overwrite);
-                    } else if (tool == EditTools.PitchSineWaveTool) {
-                        editState = new PitchCurveState(control, ViewModel, this, PitchPreviewLine, PitchCurveState.CurveMode.Sine, overwrite);
-                    } else if (tool == EditTools.PitchSmoothenTool) {
-                        editState = new SmoothenPitchState(control, ViewModel, this, overwrite);
+            // The same three tools operate on notes or pitch according to the mode.
+            if (ViewModel.EditModeIndex == 1 && args.KeyModifiers != cmdKey) {
+                var notesVm = ViewModel.NotesViewModel;
+                if (notesVm.Part == null) return;
+                notesVm.DeselectNotes();
+                if (ViewModel.ToolIndex == 1) {
+                    editState = new DrawPitchState(control, ViewModel, this, ViewModel.PitchOverwrite);
+                } else if (ViewModel.ToolIndex == 2) {
+                    editState = new ResetPitchState(control, ViewModel, this, MouseButton.Left);
+                } else {
+                    var key = PitchTarget.DrawsOverride(notesVm) ? Core.Format.Ustx.PITO : Core.Format.Ustx.PITD;
+                    var track = notesVm.Project.tracks[notesVm.Part.trackNo];
+                    if (track.TryGetExpDescriptor(notesVm.Project, key, out var descriptor)) {
+                        editState = new CurveSelectionState(control, ViewModel, this, descriptor);
                     }
-                    return;
                 }
+                return;
             }
             // Eraser Tool
             if (tool == EditTools.EraserTool && args.KeyModifiers != cmdKey) {
@@ -995,10 +993,10 @@ namespace OpenUtau.App.Controls {
             if (editState.UsesIntermediatePoints) {
                 // The last of these is the current point.
                 foreach (var p in args.GetIntermediatePoints(control)) {
-                    editState.Update(p.Pointer, p.Position);
+                    editState.Update(p.Pointer, control is ExpressionCanvas expression ? expression.ToUnscaledPoint(p.Position) : p.Position);
                 }
             } else {
-                editState.Update(point.Pointer, point.Position);
+                editState.Update(point.Pointer, control is ExpressionCanvas expression ? expression.ToUnscaledPoint(point.Position) : point.Position);
             }
         }
 
@@ -1156,6 +1154,38 @@ namespace OpenUtau.App.Controls {
             }
         }
 
+        public void SwapParametersClick(object sender, RoutedEventArgs args) => ViewModel.ParameterPanel.Swap();
+        public void ParameterFlyoutOpened(object? sender, EventArgs args) {
+            foreach (var name in new[] { "EditParameterButton", "DisplayParameterButton" }) {
+                var button = this.FindControl<Button>(name)!;
+                if (button.Flyout == sender) { button.Classes.Set("popupOpen", true); }
+            }
+        }
+        public void ParameterFlyoutClosed(object? sender, EventArgs args) {
+            foreach (var name in new[] { "EditParameterButton", "DisplayParameterButton" }) {
+                var button = this.FindControl<Button>(name)!;
+                if (button.Flyout == sender) { button.Classes.Set("popupOpen", false); }
+            }
+        }
+        public void ParameterSelectionChanged(object? sender, SelectionChangedEventArgs args) {
+            if (sender is not ListBox list || list.SelectedItem is not UExpressionDescriptor descriptor) { return; }
+            var isEdit = list.Tag as string == "Edit";
+            var flyout = this.FindControl<Button>(isEdit ? "EditParameterButton" : "DisplayParameterButton")?.Flyout;
+            if (flyout?.IsOpen != true) { return; }
+            if (isEdit) { ViewModel.ParameterPanel.EditParameter = descriptor; }
+            else { ViewModel.ParameterPanel.DisplayParameter = descriptor; }
+            flyout.Hide();
+        }
+        public void CloseParametersClick(object sender, RoutedEventArgs args) => ViewModel.NotesViewModel.ShowExpressions = false;
+        public void ToggleParametersClick(object sender, RoutedEventArgs args) =>
+            ViewModel.NotesViewModel.ShowExpressions = !ViewModel.NotesViewModel.ShowExpressions;
+        public void ParameterZoomClick(object sender, RoutedEventArgs args) {
+            var button = (ToggleButton)sender;
+            ViewModel.ParameterPanel.Zoom = button.IsChecked == true ? (button.Name == "ParameterZoom2" ? 0.5 : 0.25) : 1;
+            this.FindControl<ToggleButton>("ParameterZoom2")!.IsChecked = ViewModel.ParameterPanel.Zoom == 0.5;
+            this.FindControl<ToggleButton>("ParameterZoom4")!.IsChecked = ViewModel.ParameterPanel.Zoom == 0.25;
+        }
+
         public void ExpCanvasPointerPressed(object sender, PointerPressedEventArgs args) {
             LyricBox?.EndEdit();
             var notesVm = ViewModel.NotesViewModel;
@@ -1219,10 +1249,12 @@ namespace OpenUtau.App.Controls {
                 Cursor = ViewConstants.cursorNo;
             }
             if (editState != null) {
-                editState.ctrlShiftHeld = args.KeyModifiers == (cmdKey | KeyModifiers.Shift);
+                editState.ctrlShiftHeld = ViewModel.CurveViewModel.CurveTool == CurveTools.CurveLineTool
+                    || args.KeyModifiers == (cmdKey | KeyModifiers.Shift);
                 editState.shiftHeld = args.KeyModifiers == KeyModifiers.Shift;
-                editState.Begin(point.Pointer, point.Position);
-                editState.Update(point.Pointer, point.Position);
+                var position = ((ExpressionCanvas)control).ToUnscaledPoint(point.Position);
+                editState.Begin(point.Pointer, position);
+                editState.Update(point.Pointer, position);
             }
         }
 
@@ -1254,10 +1286,12 @@ namespace OpenUtau.App.Controls {
             }
             var control = (Control)sender;
             var point = args.GetCurrentPoint(control);
-            editState.ctrlShiftHeld = args.KeyModifiers == (cmdKey | KeyModifiers.Shift);
+            editState.ctrlShiftHeld = ViewModel.CurveViewModel.CurveTool == CurveTools.CurveLineTool
+                || args.KeyModifiers == (cmdKey | KeyModifiers.Shift);
             editState.shiftHeld = args.KeyModifiers == KeyModifiers.Shift;
-            editState.Update(point.Pointer, point.Position);
-            editState.End(point.Pointer, point.Position);
+            var position = ((ExpressionCanvas)control).ToUnscaledPoint(point.Position);
+            editState.Update(point.Pointer, position);
+            editState.End(point.Pointer, position);
             editState = null;
             Cursor = null;
             args.Pointer.Capture(null);
@@ -1569,33 +1603,12 @@ namespace OpenUtau.App.Controls {
             bool isShift = args.KeyModifiers == KeyModifiers.Shift;
             bool isBoth = args.KeyModifiers == (cmdKey | KeyModifiers.Shift);
 
-            if (PluginMenu.IsSubMenuOpen && isNone) {
-                if (ViewModel.LegacyPluginShortcuts.ContainsKey(args.Key)) {
-                    var plugin = ViewModel.LegacyPluginShortcuts[args.Key];
-                    if (plugin != null && plugin.Command != null) {
-                        plugin.Command.Execute(plugin.CommandParameter);
-                    }
-                }
-                return true;
-            }
-
             #region tool select keys
             if (isNone) {
                 switch (args.Key) {
                     case Key.D1: ViewModel.ToolIndex = 0; return true;
                     case Key.D2: ViewModel.ToolIndex = 1; return true;
                     case Key.D3: ViewModel.ToolIndex = 2; return true;
-                    case Key.D4: ViewModel.ToolIndex = 3; return true;
-                    case Key.D5: ViewModel.ToolIndex = 4; return true;
-                }
-            }
-            if (isShift) {
-                switch (args.Key) {
-                    case Key.D1: ViewModel.ToolIndex = 5; return true;
-                    case Key.D2: ViewModel.ToolIndex = 6; return true;
-                    case Key.D3: ViewModel.ToolIndex = 7; return true;
-                    case Key.D4: ViewModel.ToolIndex = 8; return true;
-                    case Key.D5: ViewModel.ToolIndex = 9; return true;
                 }
             }
             if (isAlt) {
@@ -1695,6 +1708,10 @@ namespace OpenUtau.App.Controls {
                     }
                     break;
                 case Key.L:
+                    if (isCtrl) {
+                        EditLyrics();
+                        return true;
+                    }
                     if (isNone) {
                         notesVm.ShowExpressions = !notesVm.ShowExpressions;
                         return true;
@@ -1850,13 +1867,6 @@ namespace OpenUtau.App.Controls {
                     }
                     if (isAlt) {
                         notesVm.PasteSelectedParams(RootWindow);
-                        return true;
-                    }
-                    break;
-                case Key.N:
-                    if (isNone && PluginMenu.Parent is MenuItem batch) {
-                        batch.Open();
-                        PluginMenu.Open();
                         return true;
                     }
                     break;

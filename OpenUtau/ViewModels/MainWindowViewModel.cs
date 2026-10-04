@@ -54,7 +54,7 @@ namespace OpenUtau.App.ViewModels {
         /// <summary>
         ///0: welcome page, 1: tracks page
         /// </summary>
-        [Reactive] public partial int Page { get; set; } = 0;
+        [Reactive] public partial int Page { get; set; } = 1;
         public ObservableCollectionExtended<RecentFileInfo> RecentFiles { get; } = new ObservableCollectionExtended<RecentFileInfo>();
         public ObservableCollectionExtended<RecentFileInfo> TemplateFiles { get; } = new ObservableCollectionExtended<RecentFileInfo>();
         [Reactive] public partial bool HasRecovery { get; set; } = false;
@@ -66,6 +66,8 @@ namespace OpenUtau.App.ViewModels {
         /// <summary>Whether the docked settings panel on the right is expanded.</summary>
         [Reactive] public partial bool IsPreferencesPanelOpen { get; set; }
         [Reactive] public partial bool IsRenderPanelOpen { get; set; }
+        [Reactive] public partial bool IsAudioExportPanelOpen { get; set; }
+        [Reactive] public partial AudioExportViewModel? AudioExportViewModel { get; set; }
         /// <summary>
         /// Backs the settings panel. Created lazily the first time the panel is
         /// opened and kept for the lifetime of the window, because
@@ -197,35 +199,28 @@ namespace OpenUtau.App.ViewModels {
             }
         }
 
-        public void InitProject(MainWindow window) {
+        public async Task InitProject(MainWindow window) {
             var recPath = Preferences.Default.RecoveryPath;
             if (!string.IsNullOrWhiteSpace(recPath) && File.Exists(recPath)) {
-                /*
-                var result = await MessageBox.Show(
-                    window,
-                    $"{ThemeManager.GetString("dialogs.recovery")}\n{recPath}",
-                    ThemeManager.GetString("dialogs.recovery.caption"),
-                    MessageBox.MessageBoxButtons.YesNo);
-                if (result == MessageBox.MessageBoxResult.Yes) {
+                NewProject();
+                Page = 1;
+                var restore = await new RecoveryDialog().ShowDialog<bool>(window);
+                if (restore) {
                     DocManager.Inst.ExecuteCmd(new LoadingNotification(typeof(MainWindow), true, "project"));
                     try {
-                        Core.Format.Formats.RecoveryProject(new string[] { recPath });
-                        Page = 1;
-                        DocManager.Inst.ExecuteCmd(new VoiceColorRemappingNotification(-1, true));
+                        Core.Format.Formats.RecoveryProject(new[] { recPath });
                         DocManager.Inst.Recovered = true;
                         this.RaisePropertyChanged(nameof(Title));
+                        DocManager.Inst.ExecuteCmd(new VoiceColorRemappingNotification(-1, true));
+                    } catch (Exception e) {
+                        var error = new MessageCustomizableException($"Failed to recover file {recPath}", $"<translate:errors.failed.openfile>: {recPath}", e);
+                        DocManager.Inst.ExecuteCmd(new ErrorMessageNotification(error));
                     } finally {
                         DocManager.Inst.ExecuteCmd(new LoadingNotification(typeof(MainWindow), false, "project"));
                     }
-                    return;
                 }
-                */
-                RecoveryPath = recPath;
-                RecoveryString = ThemeManager.GetString("dialogs.recovery") + "\n" + recPath;
-                HasRecovery = true;
                 return;
             }
-          
             var args = Environment.GetCommandLineArgs();
             if (args.Length == 2 && File.Exists(args[1])) {
                 try {
@@ -238,6 +233,8 @@ namespace OpenUtau.App.ViewModels {
                 }
                 return;
             }
+            NewProject();
+            Page = 1;
         }
 
         public void NewProject() {

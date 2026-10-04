@@ -15,6 +15,33 @@ namespace OpenUtau.App.Controls {
     public enum ExpDisMode { Hidden, Visible, Shadow };
 
     class ExpressionCanvas : Control {
+        public static readonly StyledProperty<double> VerticalZoomProperty =
+            AvaloniaProperty.Register<ExpressionCanvas, double>(nameof(VerticalZoom), 1);
+        public double VerticalZoom {
+            get => GetValue(VerticalZoomProperty);
+            set => SetValue(VerticalZoomProperty, value);
+        }
+        double ZoomOrigin {
+            get {
+                var project = DocManager.Inst.Project;
+                if (Part != null && Part.trackNo >= 0 && Part.trackNo < project.tracks.Count
+                    && project.tracks[Part.trackNo].TryGetExpDescriptor(project, Key, out var descriptor)
+                    && descriptor.max > descriptor.min) {
+                    return Bounds.Height * (descriptor.max - descriptor.defaultValue) / (descriptor.max - descriptor.min);
+                }
+                return Bounds.Height / 2;
+            }
+        }
+        double DrawingZoom {
+            get {
+                var project = DocManager.Inst.Project;
+                return Part != null && Part.trackNo >= 0 && Part.trackNo < project.tracks.Count
+                    && project.tracks[Part.trackNo].TryGetExpDescriptor(project, Key, out var descriptor)
+                    && descriptor.type == UExpressionType.Options ? 1 : VerticalZoom;
+            }
+        }
+        public Point ToUnscaledPoint(Point point) => new Point(point.X,
+            ZoomOrigin + (point.Y - ZoomOrigin) / DrawingZoom);
         public static readonly DirectProperty<ExpressionCanvas, double> TickWidthProperty =
             AvaloniaProperty.RegisterDirect<ExpressionCanvas, double>(
                 nameof(TickWidth),
@@ -142,6 +169,8 @@ namespace OpenUtau.App.Controls {
             }
             
             double leftTick = TickOffset - 480;
+            using var zoomTransform = context.PushTransform(new Matrix(
+                1, 0, 0, DrawingZoom, 0, ZoomOrigin * (1 - DrawingZoom)));
             double rightTick = TickOffset + Bounds.Width / TickWidth + 480;
             double optionHeight = descriptor.type == UExpressionType.Options
                 ? Bounds.Height / descriptor.options.Length
@@ -154,11 +183,11 @@ namespace OpenUtau.App.Controls {
                 var curve = Part.curves.FirstOrDefault(c => c.descriptor == descriptor);
                 double defaultHeight = Math.Round(Bounds.Height - Bounds.Height * (descriptor.defaultValue - descriptor.min) / (descriptor.max - descriptor.min));
                 
-                var lPen = DisplayMode == ExpDisMode.Shadow ? ThemeManager.NeutralAccentPen : ThemeManager.AccentPen1;
-                var lPen2 = DisplayMode == ExpDisMode.Shadow ? new Pen(ThemeManager.NeutralAccentBrush, 3) : ThemeManager.AccentPen1Thickness3;
-                var lPenSelected = DisplayMode == ExpDisMode.Shadow ? ThemeManager.NeutralAccentPen : ThemeManager.AccentPen2;
-                var lPen2Selected = DisplayMode == ExpDisMode.Shadow ? new Pen(ThemeManager.NeutralAccentBrush, 3) : ThemeManager.AccentPen2Thickness3;
-                var lPen3 = new Pen(ThemeManager.NeutralAccentBrush, 1, new DashStyle(new double[] { 4, 4 }, 0));
+                var lPen = new Pen(DisplayMode == ExpDisMode.Shadow ? ThemeManager.NeutralAccentBrush : ThemeManager.AccentBrush1, 1 / VerticalZoom);
+                var lPen2 = new Pen(DisplayMode == ExpDisMode.Shadow ? ThemeManager.NeutralAccentBrush : ThemeManager.AccentBrush1, 2 / VerticalZoom);
+                var lPenSelected = new Pen(DisplayMode == ExpDisMode.Shadow ? ThemeManager.NeutralAccentBrush : ThemeManager.AccentBrush2, 1 / VerticalZoom);
+                var lPen2Selected = new Pen(DisplayMode == ExpDisMode.Shadow ? ThemeManager.NeutralAccentBrush : ThemeManager.AccentBrush2, 2 / VerticalZoom);
+                var lPen3 = new Pen(ThemeManager.NeutralAccentBrush, 1 / VerticalZoom, new DashStyle(new double[] { 4 * VerticalZoom, 4 * VerticalZoom }, 0));
                 var brush = DisplayMode == ExpDisMode.Shadow ? ThemeManager.NeutralAccentBrush : ThemeManager.AccentBrush1;
                 
                 double x3 = Math.Round(viewModel.TickToneToPoint(leftTick, 0).X);

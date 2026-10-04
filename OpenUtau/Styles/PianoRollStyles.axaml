@@ -88,7 +88,8 @@
         <Border Name="PART_LayoutRoot"
                 Background="{TemplateBinding Background}"
                 BorderBrush="{TemplateBinding BorderBrush}"
-                BorderThickness="{TemplateBinding BorderThickness}">
+                BorderThickness="{TemplateBinding BorderThickness}"
+                CornerRadius="{TemplateBinding CornerRadius}">
           <Grid Width="18" Height="18" HorizontalAlignment="Center" VerticalAlignment="Center">
             <Path Name="PART_ToolIcon" Classes="filled">
               <Path.RenderTransform>
@@ -273,5 +274,16 @@
       <Setter Property="Stroke" Value="{DynamicResource SystemControlBackgroundAltHighBrush}" />
       <Setter Property="Fill" Value="{DynamicResource SystemControlBackgroundAltHighBrush}" />
     </Style>
+  </Style>
+  <Style Selector="ListBox.segmented"><Setter Property="Background" Value="Transparent"/></Style>
+  <Style Selector="ListBoxItem.toolbar, ToggleButton.toolbar">
+    <Setter Property="CornerRadius" Value="0"/>
+  </Style>
+  <Style Selector="ListBoxItem.segmentFirst, ToggleButton.segmentFirst"><Setter Property="CornerRadius" Value="4,0,0,4"/></Style>
+  <Style Selector="ListBoxItem.segmentLast, ToggleButton.segmentLast"><Setter Property="CornerRadius" Value="0,4,4,0"/></Style>
+  <Style Selector="ListBoxItem.noteMode /template/ Path#PART_ToolIcon"><Setter Property="Data" Value="M3 20 H13 V24 H3 Z M11 13 H23 V17 H11 Z M20 6 H32 V10 H20 Z"/></Style>
+  <Style Selector="ListBoxItem.pitchMode /template/ Path#PART_ToolIcon">
+    <Setter Property="Fill" Value="Transparent"/><Setter Property="Stroke" Value="{DynamicResource SystemControlForegroundBaseHighBrush}"/><Setter Property="StrokeThickness" Value="2"/>
+    <Setter Property="Data" Value="M3 22 C10 22 10 8 17 8 S24 22 32 6"/>
   </Style>
 </Styles>

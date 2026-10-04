@@ -406,6 +406,35 @@
     <Setter Property="IsVisible" Value="False"/>
   </Style>
 
+  <!-- Keep the thumb's pointer area wide while drawing a slim rounded handle. -->
+  <Style Selector="ScrollBar.music /template/ RepeatButton#PART_LineUpButton, ScrollBar.music /template/ RepeatButton#PART_LineDownButton">
+    <Setter Property="IsVisible" Value="False"/>
+  </Style>
+  <Style Selector="ScrollBar.music:horizontal /template/ Rectangle#TrackRect">
+    <Setter Property="Height" Value="6"/>
+    <Setter Property="VerticalAlignment" Value="Center"/>
+  </Style>
+  <Style Selector="ScrollBar.music:vertical /template/ Rectangle#TrackRect">
+    <Setter Property="Width" Value="6"/>
+    <Setter Property="HorizontalAlignment" Value="Center"/>
+  </Style>
+  <Style Selector="ScrollBar.music:horizontal /template/ Thumb /template/ Border">
+    <Setter Property="Height" Value="6"/>
+    <Setter Property="VerticalAlignment" Value="Center"/>
+    <Setter Property="CornerRadius" Value="3"/>
+  </Style>
+  <Style Selector="ScrollBar.music:vertical /template/ Thumb /template/ Border">
+    <Setter Property="Width" Value="6"/>
+    <Setter Property="HorizontalAlignment" Value="Center"/>
+    <Setter Property="CornerRadius" Value="3"/>
+  </Style>
+  <Style Selector="ScrollBar.music:horizontal /template/ Thumb">
+    <Setter Property="MinWidth" Value="32"/>
+  </Style>
+  <Style Selector="ScrollBar.music:vertical /template/ Thumb">
+    <Setter Property="MinHeight" Value="32"/>
+  </Style>
+
   <Style Selector="HeaderedContentControl.groupbox">
     <Setter Property="Margin" Value="5"/>
     <Setter Property="Background" Value="{StaticResource SystemControlBackgroundAltHighBrush}"/>

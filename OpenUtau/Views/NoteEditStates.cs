@@ -18,7 +18,7 @@ namespace OpenUtau.App.Views {
     class KeyboardPlayState {
         private readonly TrackBackground element;
         private readonly PianoRollViewModel vm;
-        private int activeTone;
+        private int activeTone = -1;
 
         public KeyboardPlayState(TrackBackground element, PianoRollViewModel vm) {
             this.element = element;
@@ -26,21 +26,28 @@ namespace OpenUtau.App.Views {
         }
         public void Begin(IPointer pointer, Point point) {
             pointer.Capture(element);
-            var tone = vm.NotesViewModel.PointToTone(point);
-            PlaybackManager.Inst.PlayTone(MusicMath.ToneToFreq(tone));
-            activeTone = tone;
+            Update(pointer, point);
         }
         public void Update(IPointer pointer, Point point) {
-            var tone = vm.NotesViewModel.PointToTone(point);
+            var tone = element.KeyboardToneAt(point);
             if (activeTone != tone) {
-                PlaybackManager.Inst.EndTone(MusicMath.ToneToFreq(activeTone));
-                PlaybackManager.Inst.PlayTone(MusicMath.ToneToFreq(tone));
+                if (activeTone >= 0) {
+                    PlaybackManager.Inst.EndTone(MusicMath.ToneToFreq(activeTone));
+                }
+                if (tone >= 0) {
+                    PlaybackManager.Inst.PlayTone(MusicMath.ToneToFreq(tone));
+                }
                 activeTone = tone;
+                element.SetAuditionTone(tone);
             }
         }
         public void End(IPointer pointer, Point point) {
             pointer.Capture(null);
-            PlaybackManager.Inst.EndTone(MusicMath.ToneToFreq(activeTone));
+            if (activeTone >= 0) {
+                PlaybackManager.Inst.EndTone(MusicMath.ToneToFreq(activeTone));
+            }
+            activeTone = -1;
+            element.SetAuditionTone(-1);
         }
     }
 
@@ -840,6 +847,7 @@ namespace OpenUtau.App.Views {
             // Masked curves keep fractional values; curves round to integers.
             double Value(Point p) {
                 double value = descriptor.min + (descriptor.max - descriptor.min) * (1 - p.Y / control.Bounds.Height);
+                value = Math.Clamp(value, descriptor.min, descriptor.max);
                 return masked ? value : Math.Round(value);
             }
             int lastX = notesVm.PointToTick(lastPoint);
@@ -851,15 +859,35 @@ namespace OpenUtau.App.Views {
             }
             if (ctrlShiftHeld) {
                 lastX = notesVm.PointToTick(firstPoint);
-                x = notesVm.PointToTick(lastPoint);
-                lastY = Value(lastPoint);
-                y = Value(lastPoint);
+                lastY = Value(firstPoint);
             } else if (shiftHeld) {
                 lastX = notesVm.PointToTick(lastPoint);
                 x = notesVm.PointToTick(point);
                 lastY = Value(firstPoint);
                 y = Value(firstPoint);
                 startValue = y;
+            }
+            if (ctrlShiftHeld && x != lastX) {
+                int originX = lastX;
+                double originY = lastY;
+                int distance = Math.Abs(x - originX);
+                int direction = Math.Sign(x - originX);
+                for (int offset = Math.Min(5, distance); ; offset = Math.Min(offset + 5, distance)) {
+                    int nextX = originX + direction * offset;
+                    double nextY = originY + (y - originY) * ParameterPanelViewModel.Interpolate(
+                        (double)offset / distance, vm.ParameterPanel.Interpolation);
+                    if (masked) {
+                        DocManager.Inst.ExecuteCmd(new SetMaskedCurveCommand(notesVm.Part, notesVm.PrimaryKey,
+                            lastX, (float)lastY, nextX, (float)nextY));
+                    } else {
+                        DocManager.Inst.ExecuteCmd(new SetCurveCommand(notesVm.Project, notesVm.Part,
+                            notesVm.PrimaryKey, nextX, (int)Math.Round(nextY), lastX, (int)Math.Round(lastY)));
+                    }
+                    lastX = nextX;
+                    lastY = nextY;
+                    if (offset == distance) { break; }
+                }
+                return;
             }
             if (masked) {
                 DocManager.Inst.ExecuteCmd(new SetMaskedCurveCommand(notesVm.Part, notesVm.PrimaryKey, lastX, (float)lastY, x, (float)y));
@@ -2250,7 +2278,8 @@ namespace OpenUtau.App.Views {
 
     class ResetPitchState : NoteEditState {
         public override bool UsesIntermediatePoints => true;
-        public override MouseButton MouseButton => MouseButton.Right;
+        private readonly MouseButton mouseButton;
+        public override MouseButton MouseButton => mouseButton;
         protected override bool ShowValueTip => false;
         protected override string? commandNameKey => "command.pitch.reset";
         Point lastPoint;
@@ -2260,7 +2289,8 @@ namespace OpenUtau.App.Views {
         public ResetPitchState(
             Control control,
             PianoRollViewModel vm,
-            IValueTip valueTip) : base(control, vm, valueTip) {
+            IValueTip valueTip, MouseButton mouseButton = MouseButton.Right) : base(control, vm, valueTip) {
+            this.mouseButton = mouseButton;
             drawsOverride = PitchTarget.DrawsOverride(vm.NotesViewModel);
         }
         public override void Begin(IPointer pointer, Point point) {

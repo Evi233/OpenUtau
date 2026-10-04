@@ -4,6 +4,7 @@ using System.Linq;
 namespace OpenUtau.Core.SignalChain {
     public class WaveMix : ISignalSource {
         private readonly List<ISignalSource> sources;
+        public IReadOnlyList<ISignalSource> Sources => sources.AsReadOnly();
 
         public WaveMix(IEnumerable<ISignalSource> sources) {
             this.sources = sources.ToList();

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -27,6 +27,29 @@ namespace OpenUtau.UiTest {
     /// key parts present with real size (by type or x:Name, not text or position), and a non-blank frame.
     /// </summary>
     public class MainWindowTest {
+        [Fact]
+        public void PianoRollSharesThreeToolsAcrossNoteAndPitchModes() {
+            HeadlessUi.Run(() => {
+                InitCore();
+                var model = new PianoRollViewModel();
+                var roll = new PianoRoll(model);
+                var window = new Window { Content = roll, Width = 1000, Height = 600 };
+                window.Show();
+                HeadlessUi.Flush();
+                Assert.Equal(3, roll.FindControl<ListBox>("DrawingTools")!.Items.Count);
+                Assert.Equal(2, roll.FindControl<ListBox>("EditingModes")!.Items.Count);
+                for (int tool = 0; tool < 3; tool++) {
+                    model.EditModeIndex = 0;
+                    model.ToolIndex = tool;
+                    Assert.Equal(tool * 10, (int)model.EditTool.CurrentTool);
+                    model.EditModeIndex = 1;
+                    Assert.Equal(tool, model.ToolIndex);
+                    Assert.True(model.EditTool.IsPitchTool);
+                }
+                window.Close();
+            });
+        }
+
         static bool coreInitialized;
 
         // What SplashWindow.Start does before showing the main window, minus audio. The splash itself
@@ -50,6 +73,7 @@ namespace OpenUtau.UiTest {
             HeadlessUi.Run(() => {
                 InitCore();
                 HeadlessUi.Errors.Clear();
+                Preferences.Default.RecoveryPath = string.Empty;
                 // One project is shared by the whole run, and "New Project" asks to save the
                 // current one first when it has unsaved changes. A test that leaves changes
                 // behind would therefore leave the next one's new-project button showing a save
@@ -112,19 +136,214 @@ namespace OpenUtau.UiTest {
         static MainWindowViewModel ViewModelOf(Window window) => Assert.IsType<MainWindowViewModel>(window.DataContext);
 
         [Fact]
-        public void LaunchShowsStartPage() {
-            WithMainWindow(nameof(LaunchShowsStartPage), window => {
-                Assert.Equal(0, ViewModelOf(window).Page);
+        public void LaunchShowsEditor() {
+            WithMainWindow(nameof(LaunchShowsEditor), window => {
+                Assert.Equal(1, ViewModelOf(window).Page);
                 AssertHasSize(window.GetVisualDescendants().OfType<Menu>().FirstOrDefault());
-                AssertHasSize(FindButtonWithText(window, "welcome.new"));
+                AssertHasSize(window.FindControl<Control>("partsCanvas"));
+                Assert.NotEmpty(DocManager.Inst.Project.tracks);
                 AssertRendered(window);
+            });
+        }
+
+        static void CreateNewProject(Window window) {
+            ViewModelOf(window).NewProject();
+            ViewModelOf(window).Page = 1;
+            HeadlessUi.Flush();
+        }
+
+        [Fact]
+        public void ParameterPanelSelectsSwapsZoomsAndDrawsCurves() {
+            HeadlessUi.Run(() => {
+                InitCore();
+                var project = OpenUtau.Core.Format.Ustx.Create();
+                project.tracks.Add(new UTrack());
+                var part = new UVoicePart { trackNo = 0, position = 0 };
+                part.notes.Add(project.CreateNote(60, 0, 1920));
+                project.parts.Add(part);
+                DocManager.Inst.ExecuteCmd(new LoadProjectNotification(project));
+                var model = new PianoRollViewModel();
+                var roll = new PianoRoll(model);
+                var window = new Window { Width = 1280, Height = 650, Content = roll };
+                try {
+                    window.Show();
+                    DocManager.Inst.ExecuteCmd(new LoadPartNotification(part, project, 0));
+                    model.NotesViewModel.ShowExpressions = true;
+                    model.NotesViewModel.ShowTips = false;
+                    model.ParameterPanel.EditParameter = model.ParameterPanel.Parameters.Single(d => d.abbr == "pitd");
+                    model.ParameterPanel.DisplayParameter = model.ParameterPanel.Parameters.Single(d => d.abbr == "vol");
+                    HeadlessUi.Flush();
+                    Assert.Equal("pitd", model.NotesViewModel.PrimaryKey);
+                    Assert.Equal("vol", model.NotesViewModel.SecondaryKey);
+                    var editParameterButton = roll.FindControl<Button>("EditParameterButton")!;
+                    Assert.Equal(new Thickness(0), editParameterButton.BorderThickness);
+                    Click(window, editParameterButton);
+                    Assert.True(editParameterButton.Flyout!.IsOpen);
+                    Assert.Contains("popupOpen", editParameterButton.Classes);
+                    var parameterList = (ListBox)((Flyout)editParameterButton.Flyout).Content!;
+                    parameterList.SelectedItem = model.ParameterPanel.Parameters.Single(d => d.abbr == "dyn");
+                    HeadlessUi.Flush();
+                    Assert.Equal("dyn", model.NotesViewModel.PrimaryKey);
+                    Assert.False(editParameterButton.Flyout.IsOpen);
+                    Assert.DoesNotContain("popupOpen", editParameterButton.Classes);
+                    model.ParameterPanel.EditParameter = model.ParameterPanel.Parameters.Single(d => d.abbr == "pitd");
+                    HeadlessUi.Flush();
+                    var interpolationIcons = roll.GetVisualDescendants().OfType<Avalonia.Controls.Shapes.Path>()
+                        .Where(p => p.Name == "PART_ToolIcon" && p.GetVisualAncestors().OfType<ListBoxItem>()
+                            .Any(item => item.Classes.Contains("parameterInterpolation"))).ToArray();
+                    Assert.Equal(3, interpolationIcons.Length);
+                    Assert.All(interpolationIcons, icon => Assert.NotNull(icon.Data));
+                    Click(window, roll.FindControl<Button>("SwapParametersButton")!);
+                    Assert.Equal("vol", model.NotesViewModel.PrimaryKey);
+                    Assert.Equal("pitd", model.NotesViewModel.SecondaryKey);
+                    Click(window, roll.FindControl<Button>("SwapParametersButton")!);
+                    Click(window, roll.FindControl<ToggleButton>("ParameterZoom2")!);
+                    Assert.Equal(.5, model.ParameterPanel.Zoom);
+                    Click(window, roll.FindControl<ToggleButton>("ParameterZoom4")!);
+                    Assert.Equal(.25, model.ParameterPanel.Zoom);
+                    Assert.False(roll.FindControl<ToggleButton>("ParameterZoom2")!.IsChecked);
+                    var canvas = roll.GetVisualDescendants().OfType<ExpressionCanvas>().Single(c => c.Key == "pitd");
+                    Assert.Equal(canvas.Bounds.Height / 2, canvas.ToUnscaledPoint(new Point(0, canvas.Bounds.Height / 2)).Y);
+                    Assert.Equal(canvas.Bounds.Height * -1.5, canvas.ToUnscaledPoint(new Point(0, 0)).Y, 5);
+                    model.CurveViewModel.CurveToolIndex = 2;
+                    model.ParameterPanel.Interpolation = 2;
+                    var start = canvas.TranslatePoint(new Point(100, canvas.Bounds.Height * .55), window)!.Value;
+                    var end = canvas.TranslatePoint(new Point(300, canvas.Bounds.Height * .45), window)!.Value;
+                    window.MouseDown(start, MouseButton.Left);
+                    window.MouseMove(end);
+                    window.MouseUp(end, MouseButton.Left);
+                    HeadlessUi.Flush();
+                    var curve = part.curves.Single(c => c.abbr == "pitd");
+                    Assert.True(curve.xs.Count > 3);
+                    Assert.True(curve.ys.Max() > curve.ys.Min());
+                    Assert.All(curve.ys, y => Assert.InRange(y, (int)project.expressions["pitd"].min, (int)project.expressions["pitd"].max));
+                    var values = curve.ys.ToArray();
+                    DocManager.Inst.Undo();
+                    Assert.Empty(curve.ys);
+                    DocManager.Inst.Redo();
+                    Assert.Equal(values, curve.ys);
+                    model.ParameterPanel.EditParameter = model.ParameterPanel.Parameters.Single(d => d.abbr == "dyn");
+                    Assert.Equal("+480", model.ParameterPanel.EditMaximum);
+                    Assert.Equal("-960", model.ParameterPanel.EditMinimum);
+                    HeadlessUi.Flush();
+                    var dynamicsCanvas = roll.GetVisualDescendants().OfType<ExpressionCanvas>().Single(c => c.Key == "dyn");
+                    var zeroY = dynamicsCanvas.Bounds.Height / 3;
+                    Assert.Equal(zeroY, dynamicsCanvas.ToUnscaledPoint(new Point(0, zeroY)).Y, 5);
+                    Click(window, roll.FindControl<Button>("CollapseParametersButton")!);
+                    Assert.False(model.NotesViewModel.ShowExpressions);
+                    Assert.Equal(34, model.NotesViewModel.ExpHeightMax);
+                    AssertHasSize(roll.FindControl<Button>("CollapseParametersButton"));
+                    Assert.False(dynamicsCanvas.IsEffectivelyVisible);
+                    Click(window, roll.FindControl<Button>("CollapseParametersButton")!);
+                    Assert.True(model.NotesViewModel.ShowExpressions);
+                    AssertHasSize(dynamicsCanvas);
+                    HeadlessUi.Flush();
+                    HeadlessUi.SaveScreenshot(window, nameof(ParameterPanelSelectsSwapsZoomsAndDrawsCurves));
+                } finally { window.Close(); }
+            });
+        }
+
+        [Theory]
+        [InlineData(0, 0)]
+        [InlineData(1, .25)]
+        [InlineData(2, .15625)]
+        public void ParameterInterpolationModesHaveDistinctShapes(int mode, double expected) {
+            Assert.Equal(expected, ParameterPanelViewModel.Interpolate(.25, mode), 6);
+            Assert.Equal(1, ParameterPanelViewModel.Interpolate(1, mode));
+        }
+
+        [Fact]
+        public void RecoveryStartsInEditorAndOffersBorderlessPrompt() {
+            HeadlessUi.Run(() => {
+                InitCore();
+                var previousRecoveryPath = Preferences.Default.RecoveryPath;
+                var recoveryPath = System.IO.Path.Combine(System.IO.Path.GetTempPath(), Guid.NewGuid() + "-autosave.ustx");
+                var recoveryProject = OpenUtau.Core.Format.Ustx.Create();
+                recoveryProject.name = "Recovery test project";
+                OpenUtau.Core.Format.Ustx.Save(recoveryPath, recoveryProject);
+                var window = new MainWindow { Width = 1280, Height = 800 };
+                try {
+                    window.Show();
+                    foreach (var restore in new[] { false, true }) {
+                        Preferences.Default.RecoveryPath = recoveryPath;
+                        var startup = ViewModelOf(window).InitProject(window);
+                        HeadlessUi.Flush();
+                        Assert.Equal(1, ViewModelOf(window).Page);
+                        var prompt = Assert.IsType<RecoveryDialog>(Assert.Single(window.OwnedWindows));
+                        Assert.Equal("None", prompt.SystemDecorations.ToString());
+                        AssertHasSize(prompt.FindControl<Button>("RestoreRecoveryButton"));
+                        prompt.FindControl<Button>(restore ? "RestoreRecoveryButton" : "DeclineRecoveryButton")!
+                            .RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+                        HeadlessUi.Flush();
+                        Assert.True(startup.IsCompletedSuccessfully);
+                        Assert.Equal(1, ViewModelOf(window).Page);
+                        Assert.Equal(restore, DocManager.Inst.Recovered);
+                        if (restore) { Assert.Equal("Recovery test project", DocManager.Inst.Project.name); }
+                        Assert.True(System.IO.File.Exists(recoveryPath));
+                        Assert.Empty(window.OwnedWindows);
+                    }
+                } finally {
+                    window.Close();
+                    Preferences.Default.RecoveryPath = previousRecoveryPath;
+                    Preferences.Save();
+                    System.IO.File.Delete(recoveryPath);
+                }
+            });
+        }
+
+        [Fact]
+        public void VoiceColorMappingHandlesEmptyTargetColors() {
+            var model = new VoiceColorMappingViewModel(new[] { "", "soft", "loud" }, Array.Empty<string>(), "Imported track");
+            Assert.Equal(3, model.ColorMappings.Count);
+            Assert.All(model.ColorMappings, mapping => {
+                Assert.Equal(0, mapping.SelectedIndex);
+                Assert.Equal("(Default)", Assert.Single(mapping.NewColors));
+            });
+            Assert.Empty(new VoiceColorMappingViewModel(Array.Empty<string>(), Array.Empty<string>(), "Empty track").ColorMappings);
+        }
+
+        [Fact]
+        public void VoiceColorMappingPreservesNamedAndFallbackMappings() {
+            var targets = new[] { "", "loud", "soft" };
+            var model = new VoiceColorMappingViewModel(new[] { "", "soft", "unknown", "loud", "missing" }, targets, "Track");
+            Assert.Equal(new[] { 0, 2, 2, 1, 0 }, model.ColorMappings.Select(m => m.SelectedIndex));
+            Assert.Equal("", targets[0]);
+            Assert.All(model.ColorMappings, mapping => Assert.InRange(mapping.SelectedIndex, 0, mapping.NewColors.Count - 1));
+        }
+
+        [Fact]
+        public void PianoKeyboardUsesOverlappingWhiteAndBlackKeys() {
+            HeadlessUi.Run(() => {
+                InitCore();
+                var keyboard = new TrackBackground { IsPianoRoll = true, IsKeyboard = true, ClipToBounds = true };
+                keyboard.SetValue(TrackBackground.TrackHeightProperty, 20);
+                keyboard.SetValue(TrackBackground.TrackOffsetProperty, (double)(OpenUtau.App.ViewConstants.MaxTone - 1 - 72));
+                var window = new Window { Width = 74, Height = 300, Content = keyboard };
+                try {
+                    window.Show();
+                    HeadlessUi.Flush();
+                    var white = keyboard.KeyboardKeyBounds(60);
+                    var black = keyboard.KeyboardKeyBounds(61);
+                    Assert.Equal(20 * 12.0 / 7, white.Height, 6);
+                    Assert.Equal(white.Height, keyboard.KeyboardKeyBounds(62).Height, 6);
+                    Assert.Equal(keyboard.Bounds.Width / 2, black.Width, 6);
+                    Assert.Equal(61, keyboard.KeyboardToneAt(new Point(black.Width / 2, black.Center.Y)));
+                    int rightTone = keyboard.KeyboardToneAt(new Point(keyboard.Bounds.Width - 5, black.Center.Y));
+                    Assert.True(rightTone >= 0);
+                    Assert.False(MusicMath.IsBlackKey(rightTone));
+                    keyboard.SetAuditionTone(61);
+                    HeadlessUi.Flush();
+                    HeadlessUi.SaveScreenshot(window, nameof(PianoKeyboardUsesOverlappingWhiteAndBlackKeys));
+                } finally {
+                    window.Close();
+                }
             });
         }
 
         [Fact]
         public void NewProjectOpensEditor() {
             WithMainWindow(nameof(NewProjectOpensEditor), window => {
-                Click(window, FindButtonWithText(window, "welcome.new"));
+                CreateNewProject(window);
 
                 Assert.Equal(1, ViewModelOf(window).Page);
                 var trackCount = DocManager.Inst.Project.tracks.Count;
@@ -143,7 +362,7 @@ namespace OpenUtau.UiTest {
         [Fact]
         public void ProjectKeepsATrackSelected() {
             WithMainWindow(nameof(ProjectKeepsATrackSelected), window => {
-                Click(window, FindButtonWithText(window, "welcome.new"));
+                CreateNewProject(window);
                 var tracks = ViewModelOf(window).TracksViewModel;
                 Assert.Same(tracks.Tracks[0], Assert.Single(tracks.SelectedTracks));
 
@@ -196,6 +415,37 @@ namespace OpenUtau.UiTest {
         }
 
         [Fact]
+        public void AudioExportHasIndependentDockPanel() {
+            WithMainWindow(nameof(AudioExportHasIndependentDockPanel), window => {
+                var model = ViewModelOf(window);
+                Click(window, window.FindControl<ToggleButton>("AudioExportButton")!);
+                Assert.True(model.IsAudioExportPanelOpen);
+                Assert.False(model.IsRenderPanelOpen);
+                var panel = window.GetVisualDescendants().OfType<AudioExportPanel>().Single();
+                AssertHasSize(panel);
+                AssertHasSize(panel.FindControl<Button>("ExportAudioButton"));
+                Assert.True(model.AudioExportViewModel!.MixDown);
+                Assert.Equal(DocManager.Inst.Project.tracks.Count, model.AudioExportViewModel.Tracks.Count);
+                Assert.Empty(panel.GetVisualDescendants().OfType<Slider>());
+                DocManager.Inst.ExecuteCmd(new OpenUtau.Core.Render.TrackRenderProgressNotification(0, 65));
+                HeadlessUi.Flush();
+                Assert.Equal(65, model.AudioExportViewModel.Tracks[0].Progress);
+                Assert.Contains(panel.GetVisualDescendants().OfType<ProgressBar>(), bar => bar.Value == 65);
+                Assert.Contains(panel.GetVisualDescendants().OfType<TextBlock>(), text => text.Text == "混音");
+                Assert.Contains(panel.GetVisualDescendants().OfType<TextBlock>(), text => text.Text == DocManager.Inst.Project.tracks[0].TrackName);
+                HeadlessUi.SaveScreenshot(window, nameof(AudioExportHasIndependentDockPanel) + "-open");
+                Click(window, window.FindControl<ToggleButton>("RenderButton")!);
+                Assert.True(model.IsRenderPanelOpen);
+                Assert.True(model.IsAudioExportPanelOpen);
+                var rendering = window.GetVisualDescendants().OfType<RenderPreferencesPanel>().Single();
+                Assert.Null(rendering.FindControl<Button>("ExportAudioButton"));
+                Click(window, window.FindControl<ToggleButton>("AudioExportButton")!);
+                Assert.False(model.IsAudioExportPanelOpen);
+                Assert.True(model.IsRenderPanelOpen);
+            });
+        }
+
+        [Fact]
         public void RenderPanelTogglesAndSharesPreferences() {
             WithMainWindow(nameof(RenderPanelTogglesAndSharesPreferences), window => {
                 var viewModel = ViewModelOf(window);
@@ -209,7 +459,7 @@ namespace OpenUtau.UiTest {
                 window.MouseMove(new Point(600, 400));
                 HeadlessUi.Flush();
                 var icon = button.GetVisualDescendants().OfType<Avalonia.Controls.Shapes.Path>().Single();
-                Assert.Equal(OpenUtau.App.ThemeManager.AccentBrush1.ToString(), icon.Stroke!.ToString());
+                Assert.Equal(OpenUtau.App.ThemeManager.AccentBrush1.ToString(), icon.Fill!.ToString());
                 var panel = window.GetVisualDescendants().OfType<RenderPreferencesPanel>().Single();
                 AssertHasSize(panel);
                 Assert.Same(viewModel.PreferencesViewModel, panel.DataContext);
@@ -224,7 +474,7 @@ namespace OpenUtau.UiTest {
                 Assert.False(viewModel.IsRenderPanelOpen);
                 Assert.False(panel.IsEffectivelyVisible);
                 HeadlessUi.Flush();
-                Assert.NotEqual(OpenUtau.App.ThemeManager.AccentBrush1.ToString(), icon.Stroke!.ToString());
+                Assert.NotEqual(OpenUtau.App.ThemeManager.AccentBrush1.ToString(), icon.Fill!.ToString());
                 Click(window, window.FindControl<ToggleButton>("PreferencesButton")!);
                 var preferences = window.GetVisualDescendants().OfType<PreferencesPanel>().Single();
                 Assert.Same(panel.DataContext, preferences.DataContext);
@@ -316,7 +566,7 @@ namespace OpenUtau.UiTest {
         [Fact]
         public void VoicePanelFollowsTheSelectedTrack() {
             WithMainWindow(nameof(VoicePanelFollowsTheSelectedTrack), window => {
-                Click(window, FindButtonWithText(window, "welcome.new"));
+                CreateNewProject(window);
                 Click(window, window.FindControl<ToggleButton>("VoiceButton")!);
                 var tracks = ViewModelOf(window).TracksViewModel;
                 var voice = ViewModelOf(window).VoiceViewModel;
@@ -347,7 +597,7 @@ namespace OpenUtau.UiTest {
         [Fact]
         public void VoicePanelOpensOnTheSelectedTrack() {
             WithMainWindow(nameof(VoicePanelOpensOnTheSelectedTrack), window => WithFakeSingers(1, Array.Empty<int>(), Array.Empty<int>(), singers => {
-                Click(window, FindButtonWithText(window, "welcome.new"));
+                CreateNewProject(window);
                 var tracks = ViewModelOf(window).TracksViewModel;
                 var project = DocManager.Inst.Project;
                 DocManager.Inst.StartUndoGroup("command.track.add");
@@ -377,7 +627,7 @@ namespace OpenUtau.UiTest {
         [Fact]
         public void NotePropertiesPanelOpensOnTheSelectedNotes() {
             WithMainWindow(nameof(NotePropertiesPanelOpensOnTheSelectedNotes), window => {
-                Click(window, FindButtonWithText(window, "welcome.new"));
+                CreateNewProject(window);
                 var viewModel = ViewModelOf(window);
                 Assert.Null(viewModel.NotePropertiesViewModel);
 
@@ -405,7 +655,12 @@ namespace OpenUtau.UiTest {
                 window.MouseDown(point, MouseButton.Left, RawInputModifiers.None);
                 window.MouseUp(point, MouseButton.Left, RawInputModifiers.None);
                 HeadlessUi.Flush();
-                HeadlessUi.Flush();
+                // Opening the piano roll initializes its view model on a worker thread.
+                var deadline = DateTime.UtcNow.AddSeconds(10);
+                while (!viewModel.ShowPianoRoll && DateTime.UtcNow < deadline) {
+                    Thread.Sleep(10);
+                    HeadlessUi.Flush();
+                }
                 Assert.True(viewModel.ShowPianoRoll);
 
                 var notesViewModel = window.GetVisualDescendants().OfType<PianoRoll>().Single().ViewModel.NotesViewModel;
@@ -418,6 +673,7 @@ namespace OpenUtau.UiTest {
                 Assert.Same(part, noteProperties!.Part);
                 Assert.True(noteProperties.IsNoteSelected);
                 Assert.Equal("a", noteProperties.Lyric);
+                HeadlessUi.Flush();
                 AssertHasSize(window.GetVisualDescendants().OfType<NotePropertiesControl>().Single());
 
                 // And it edits the notes it was seated on.
@@ -431,7 +687,7 @@ namespace OpenUtau.UiTest {
         [Fact]
         public void VoicePanelShowsTheEnginesParameters() {
             WithMainWindow(nameof(VoicePanelShowsTheEnginesParameters), window => WithFakeSingers(3, Array.Empty<int>(), Array.Empty<int>(), singers => {
-                Click(window, FindButtonWithText(window, "welcome.new"));
+                CreateNewProject(window);
                 Click(window, window.FindControl<ToggleButton>("VoiceButton")!);
                 var voice = ViewModelOf(window).VoiceViewModel;
                 Assert.NotNull(voice);
@@ -505,7 +761,7 @@ namespace OpenUtau.UiTest {
         public void SingerFlyoutSearches() {
             WithMainWindow(nameof(SingerFlyoutSearches), window => WithFakeSingers(11, new[] { 0, 1, 2 }, new[] { 5, 6, 7 }, singers => {
                 singers[4].SearchTerms.Add("kasane teto");
-                Click(window, FindButtonWithText(window, "welcome.new"));
+                CreateNewProject(window);
                 var header = window.GetVisualDescendants().OfType<TrackHeader>().First();
                 Click(window, header.FindControl<Button>("SingerButton")!);
 
@@ -612,7 +868,7 @@ namespace OpenUtau.UiTest {
         [Fact]
         public void RulerNumbersEditOnDoubleClick() {
             WithMainWindow(nameof(RulerNumbersEditOnDoubleClick), window => {
-                Click(window, FindButtonWithText(window, "welcome.new"));
+                CreateNewProject(window);
                 var timeSignature = window.FindControl<TextBlock>("TimeSignatureText")!;
                 var tempo = window.FindControl<TextBlock>("TempoText")!;
                 AssertHasSize(timeSignature);
@@ -637,7 +893,7 @@ namespace OpenUtau.UiTest {
         public void TrackRowMenuOffersRendererAndSettings() {
             WithMainWindow(nameof(TrackRowMenuOffersRendererAndSettings), window =>
                 WithFakeSingers(1, Array.Empty<int>(), Array.Empty<int>(), singers => {
-                    Click(window, FindButtonWithText(window, "welcome.new"));
+                    CreateNewProject(window);
                     var header = window.GetVisualDescendants().OfType<TrackHeader>().First();
                     var viewModel = header.ViewModel!;
                     var rendererHeader = window.FindResource("tracks.selectrenderer")!;
@@ -669,7 +925,7 @@ namespace OpenUtau.UiTest {
         [Fact]
         public void ArrangementMenuAddsATrack() {
             WithMainWindow(nameof(ArrangementMenuAddsATrack), window => {
-                Click(window, FindButtonWithText(window, "welcome.new"));
+                CreateNewProject(window);
                 var tracks = ViewModelOf(window).TracksViewModel;
                 var count = tracks.Tracks.Count;
                 var button = window.FindControl<Button>("ArrangementMenuButton");
@@ -687,7 +943,7 @@ namespace OpenUtau.UiTest {
         [Fact]
         public void TrackRowSurvivesTheSmallHeight() {
             WithMainWindow(nameof(TrackRowSurvivesTheSmallHeight), window => {
-                Click(window, FindButtonWithText(window, "welcome.new"));
+                CreateNewProject(window);
                 ViewModelOf(window).TracksViewModel.SetTrackHeight(44);
                 HeadlessUi.Flush();
 
@@ -709,7 +965,7 @@ namespace OpenUtau.UiTest {
         [Fact]
         public void DefaultTrackRowIsCompactAndComplete() {
             WithMainWindow(nameof(DefaultTrackRowIsCompactAndComplete), window => {
-                Click(window, FindButtonWithText(window, "welcome.new"));
+                CreateNewProject(window);
                 Assert.Equal(64d, ViewModelOf(window).TracksViewModel.TrackHeight);
                 HeadlessUi.Flush();
 
@@ -729,7 +985,7 @@ namespace OpenUtau.UiTest {
         [Fact]
         public void TrackKnobsResetOnRightClick() {
             WithMainWindow(nameof(TrackKnobsResetOnRightClick), window => {
-                Click(window, FindButtonWithText(window, "welcome.new"));
+                CreateNewProject(window);
                 var header = window.GetVisualDescendants().OfType<TrackHeader>().First();
                 var knob = header.GetVisualDescendants().OfType<Knob>().First();
                 var track = DocManager.Inst.Project.tracks[0];

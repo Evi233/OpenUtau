@@ -142,7 +142,7 @@ namespace OpenUtau.App.Views {
         }
 
         public void InitProject() {
-            viewModel.InitProject(this);
+            _ = viewModel.InitProject(this);
         }
 
         // The ruler's two numbers are read far more often than they are changed, so a single
@@ -837,6 +837,16 @@ namespace OpenUtau.App.Views {
             viewModel.PreferencesViewModel!.OnPanelShown();
             viewModel.IsRenderPanelOpen = true;
         }
+        void OnShowAudioExportPanel(object sender, RoutedEventArgs args) {
+            viewModel.AudioExportViewModel ??= new AudioExportViewModel();
+            viewModel.AudioExportViewModel.Refresh();
+            viewModel.IsAudioExportPanelOpen = true;
+        }
+        void OnToggleAudioExportPanel(object sender, RoutedEventArgs args) {
+            if (viewModel.IsAudioExportPanelOpen) { viewModel.IsAudioExportPanelOpen = false; }
+            else { OnShowAudioExportPanel(sender, args); }
+        }
+        void OnCloseAudioExportPanel(object sender, RoutedEventArgs args) => viewModel.IsAudioExportPanelOpen = false;
 
         void OnCloseRenderPanel(object sender, RoutedEventArgs args) {
             viewModel.IsRenderPanelOpen = false;
@@ -2077,6 +2087,7 @@ namespace OpenUtau.App.Views {
 
             var oldModes = new[] { "" }.Concat(modes).ToArray();
             var colors = track.Singer.Subbanks.Select(s => s.Color).ToArray();
+            if (colors.Length == 0) return;
             var dialog = new VoiceColorMappingDialog { DataContext = new VoiceColorMappingViewModel(oldModes, colors, track.TrackName) };
             await dialog.ShowDialog(this);
             if (!dialog.Apply) return;

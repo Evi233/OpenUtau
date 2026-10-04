@@ -47,6 +47,7 @@ namespace OpenUtau.App.ViewModels {
         [Reactive] public partial NotesViewModel NotesViewModel { get; set; }
         [Reactive] public partial PlaybackViewModel? PlaybackViewModel { get; set; }
         [Reactive] public partial CurveViewModel CurveViewModel { get; set; }
+        public ParameterPanelViewModel ParameterPanel { get; }
 
         public double Width => Preferences.Default.PianorollWindowSize.Width;
         public double Height => Preferences.Default.PianorollWindowSize.Height;
@@ -77,7 +78,8 @@ namespace OpenUtau.App.ViewModels {
         }
 
         public EditTool EditTool { get; set; } = Preferences.Default.EditTool;
-        [Reactive] public partial int ToolIndex { get; set; } = Preferences.Default.EditTool.BaseTool;
+        [Reactive] public partial int ToolIndex { get; set; } = Preferences.Default.EditTool.BaseTool == 2 ? 2 : Preferences.Default.EditTool.BaseTool == 0 ? 0 : 1;
+        [Reactive] public partial int EditModeIndex { get; set; } = Preferences.Default.EditTool.IsPitchTool ? 1 : 0;
         [Reactive] public partial int PenToolIndex { get; set; } = Preferences.Default.EditTool.PenToolVariation;
         [Reactive] public partial bool PitchOverwrite { get; set; } = Preferences.Default.EditTool.OverwritePitch;
 
@@ -118,9 +120,13 @@ namespace OpenUtau.App.ViewModels {
         public PianoRollViewModel() {
             NotesViewModel = new NotesViewModel();
             CurveViewModel = new CurveViewModel();
+            ParameterPanel = new ParameterPanelViewModel(NotesViewModel);
 
-            this.WhenAnyValue(vm => vm.ToolIndex)
-                .Subscribe(index => EditTool.BaseTool = index);
+            this.WhenAnyValue(vm => vm.ToolIndex, vm => vm.EditModeIndex)
+                .Subscribe(value => {
+                    EditTool.BaseTool = value.Item2 == 1 ? 5 : Math.Clamp(value.Item1, 0, 2);
+                    EditTool.PenToolVariation = 0;
+                });
             this.WhenAnyValue(vm => vm.PenToolIndex)
                 .Subscribe(index => EditTool.PenToolVariation = index);
             this.WhenAnyValue(vm => vm.PitchOverwrite)
@@ -306,6 +312,9 @@ namespace OpenUtau.App.ViewModels {
 
         public void OnNext(UCommand cmd, bool isUndo) {
             SetUndoState();
+            if (cmd is ConfigureExpressionsCommand || cmd is TrackChangeSingerCommand || cmd is LoadProjectNotification) {
+                ParameterPanel.Refresh();
+            }
         }
 
         #endregion

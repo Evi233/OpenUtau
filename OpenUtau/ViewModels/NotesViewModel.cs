@@ -278,9 +278,9 @@ namespace OpenUtau.App.ViewModels {
             this.WhenAnyValue(x => x.ShowExpressions)
             .Subscribe(showExpressions => {
                 ExpHeightMin = showExpressions
-                    ? ViewConstants.ExpHeightMin : 0;
+                    ? ViewConstants.ExpHeightMin : 34;
                 ExpHeightMax = showExpressions
-                    ? ViewConstants.ExpHeightMax : 0;
+                    ? ViewConstants.ExpHeightMax : 34;
                 Preferences.Default.ShowExpressions = showExpressions;
                 Preferences.Save();
             });
@@ -1145,6 +1145,11 @@ namespace OpenUtau.App.ViewModels {
                 return track.RendererSettings.Renderer.SupportsExpression(track.VoiceColorExp);
             }
             return true;
+        }
+
+        public void SelectParameter(string key) {
+            PrimaryKey = key;
+            PrimaryKeyNotSupported = !IsExpSupported(key);
         }
 
         public void OnNext(UCommand cmd, bool isUndo) {

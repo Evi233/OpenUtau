@@ -86,6 +86,13 @@ namespace OpenUtau.Core.Render {
     }
 
     class RenderEngine {
+        public Action<int, double>? TrackRenderProgress { get; set; }
+        void NotifyTrackProgress(int index, double percent) {
+            TrackRenderProgress?.Invoke(index, percent);
+            if (project == DocManager.Inst.Project) {
+                DocManager.Inst.ExecuteCmd(new TrackRenderProgressNotification(index, percent));
+            }
+        }
         readonly UProject project;
         readonly int startTick;
         readonly int endTick;
@@ -346,6 +353,9 @@ namespace OpenUtau.Core.Render {
                 tupleArray = OrderForPreRender(tupleArray);
             }
             var progress = new Progress(tupleArray.Sum(t => t.phrase.phones.Length));
+            var trackTotals = tupleArray.GroupBy(t => t.request.trackNo).ToDictionary(group => group.Key, group => group.Count());
+            var trackCompleted = trackTotals.Keys.ToDictionary(index => index, _ => 0);
+            foreach (var index in trackTotals.Keys) { NotifyTrackProgress(index, 0); }
             // Only full-project passes (pre-render / export) maintain the real-curve coverage
             // invariant. Partial playback passes must not trim curves outside their tick window.
             bool maintainCoverage = startTick == 0 && endTick == -1;
@@ -418,6 +428,7 @@ namespace OpenUtau.Core.Render {
                     planner.RegisterPcm(request.part, phrase.hash, tuple.offsetMs, tuple.estimatedLengthMs, 1, blended);
                 }
                 // Progressive waveform: coalesced to a ~10 Hz repaint rate.
+                NotifyTrackProgress(request.trackNo, ++trackCompleted[request.trackNo] * 100.0 / trackTotals[request.trackNo]);
                 WaveformRefresh.Request();
                 if (publishedUpdates == null) {
                     publishedUpdates = PublishRealCurveUpdates(request.part, phrase);

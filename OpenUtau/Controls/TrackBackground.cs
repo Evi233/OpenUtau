@@ -51,7 +51,7 @@ namespace OpenUtau.App.Controls {
         }
         public bool IsKeyboard {
             get => _isKeyboard;
-            set => SetAndRaise(IsPianoRollProperty, ref _isKeyboard, value);
+            set => SetAndRaise(IsKeyboardProperty, ref _isKeyboard, value);
         }
         public int Key {
             get => _key;
@@ -63,6 +63,72 @@ namespace OpenUtau.App.Controls {
         private bool _isPianoRoll;
         private bool _isKeyboard;
         private int _key;
+        private int auditionTone = -1;
+
+        internal void SetAuditionTone(int tone) {
+            auditionTone = tone;
+            InvalidateVisual();
+        }
+
+        internal Rect KeyboardKeyBounds(int tone) {
+            double y = (ViewConstants.MaxTone - 1 - tone - TrackOffset) * TrackHeight;
+            if (MusicMath.IsBlackKey(tone)) {
+                return new Rect(0, y, Bounds.Width * 0.5, TrackHeight);
+            }
+            int[] whiteIndices = { 0, 0, 1, 1, 2, 3, 3, 4, 4, 5, 5, 6 };
+            int key = tone % 12;
+            double height = TrackHeight * 12 / 7;
+            double bottom = y + key * TrackHeight + TrackHeight;
+            return new Rect(0, bottom - (whiteIndices[key] + 1) * height, Bounds.Width, height);
+        }
+
+        internal int KeyboardToneAt(Point point) {
+            if (TrackHeight <= 0 || !new Rect(Bounds.Size).Contains(point)) {
+                return -1;
+            }
+            foreach (bool black in new[] { true, false }) {
+                for (int tone = 0; tone < ViewConstants.MaxTone; tone++) {
+                    if (MusicMath.IsBlackKey(tone) == black && KeyboardKeyBounds(tone).Contains(point)) {
+                        return tone;
+                    }
+                }
+            }
+            return -1;
+        }
+
+        void RenderKeyboard(DrawingContext context) {
+            context.DrawRectangle(ThemeManager.BackgroundBrush, null, new Rect(Bounds.Size));
+            foreach (bool black in new[] { false, true }) {
+                for (int tone = 0; tone < ViewConstants.MaxTone; tone++) {
+                    if (MusicMath.IsBlackKey(tone) != black) {
+                        continue;
+                    }
+                    var bounds = KeyboardKeyBounds(tone);
+                    if (bounds.Bottom <= 0 || bounds.Top >= Bounds.Height) {
+                        continue;
+                    }
+                    double inset = black ? 0 : Math.Min(0.35, bounds.Height / 4);
+                    var rect = new Rect(-3, bounds.Y + inset, bounds.Width + 3, bounds.Height - inset * 2);
+                    context.DrawRectangle(black ? ThemeManager.BlackKeyBrush : ThemeManager.WhiteKeyBrush,
+                        null, rect, 3, 3);
+                    if (tone == auditionTone) {
+                        using (context.PushOpacity(black ? 0.85 : 0.7)) {
+                            context.DrawRectangle(ThemeManager.AccentBrush1, null, rect, 3, 3);
+                        }
+                    }
+                    if (tone % 12 == 0 && TrackHeight >= 12) {
+                        var text = TextLayoutCache.Get(MusicMath.GetToneName(tone), ThemeManager.WhiteKeyNameBrush, 11);
+                        double rowY = (ViewConstants.MaxTone - 1 - tone - TrackOffset) * TrackHeight;
+                        using (context.PushTransform(Matrix.CreateTranslation(
+                            Bounds.Width - 7 - text.Width, rowY + (TrackHeight - text.Height) / 2))) {
+                            text.Draw(context, new Point());
+                        }
+                    }
+                }
+            }
+            context.DrawRectangle(ThemeManager.NeutralAccentBrushSemi, null,
+                new Rect(Math.Max(0, Bounds.Width - 1), 0, 1, Bounds.Height));
+        }
 
         public TrackBackground() {
             MessageBus.Current.Listen<ThemeChangedEvent>()
@@ -85,6 +151,10 @@ namespace OpenUtau.App.Controls {
 
         public override void Render(DrawingContext context) {
             if (TrackHeight == 0) {
+                return;
+            }
+            if (IsKeyboard) {
+                RenderKeyboard(context);
                 return;
             }
             int track = (int)TrackOffset;

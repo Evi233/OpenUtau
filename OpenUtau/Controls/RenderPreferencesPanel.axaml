@@ -96,6 +96,7 @@
       </StackPanel>
       <TextBlock Text="{DynamicResource prefs.rendering.gamebackend}" Margin="0,10,0,0"/>
       <ComboBox x:Name="DiffSingerGameBackend" ItemsSource="{Binding GameBackendOptions}" SelectedItem="{Binding GameBackend}"/>
+      <TextBlock Text="性能设置" Margin="0,10,0,0"/>
       <ComboBox x:Name="DiffSingerPresetSelector" SelectedIndex="{Binding DiffSingerPreset}">
         <ComboBoxItem Content="默认选项"/>
         <ComboBoxItem Content="最高质量"/>

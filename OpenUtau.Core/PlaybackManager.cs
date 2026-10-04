@@ -544,6 +544,85 @@ namespace OpenUtau.Core {
         }
 
         // Exporting mixdown
+        public async Task<string[]> ExportAudio(UProject project, string folder, string name,
+                bool mixdown, double mixGain, AudioExportTrack[] selections, AudioExportOptions options, IProgress<AudioExportProgress>? progress = null) {
+            return await Task.Run(() => {
+                Directory.CreateDirectory(folder);
+                var temporaryFolder = Path.Combine(Path.GetTempPath(), "openutau-export-" + Guid.NewGuid());
+                Directory.CreateDirectory(temporaryFolder);
+                var outputs = new List<string>();
+                var readers = new List<WaveFileReader>();
+                try {
+                    var engine = new RenderEngine(project);
+                    engine.TrackRenderProgress = (trackNo, percent) => progress?.Report(new AudioExportProgress(trackNo, percent));
+                    var rendered = engine.RenderMixdown(DocManager.Inst.MainScheduler, ref exportCancellation,
+                        wait: true, applyMixFx: true, new MixPlanner()).Item1;
+                    var mixInputs = new List<ISampleProvider>();
+                    var noiseInputs = new List<ISampleProvider>();
+                    foreach (var selection in selections) {
+                        int index = selection.TrackNo;
+                        if (index < 0 || index >= rendered.Sources.Count || project.tracks[index].Muted
+                            || (!mixdown && !selection.Export)) continue;
+                        progress?.Report(new AudioExportProgress(index, 100));
+                        exportCancellation.Token.ThrowIfCancellationRequested();
+                        var cache = Path.Combine(temporaryFolder, index + ".wav");
+                        AudioExport.WriteWave(cache, new VolumeSampleProvider(new ExportAdapter(rendered.Sources[index])) {
+                            Volume = (float)selection.Gain,
+                        }, new AudioExportOptions(2, 32, 44100));
+                        string? noiseCache = null;
+                        if (options.Aspiration != AspirationOutput.Combined && project.parts.OfType<UVoicePart>().Any(p => p.trackNo == index)) {
+                            var separator = Analysis.Hnsep.Instance;
+                            if (separator.SampleRate != 44100) throw new NotSupportedException("气声分离模型必须使用 44100 Hz 采样率。");
+                            var harmonicCache = Path.Combine(temporaryFolder, index + "-harmonic.wav");
+                            noiseCache = Path.Combine(temporaryFolder, index + "-noise.wav");
+                            AudioExport.SeparateWave(cache, harmonicCache, noiseCache, separator.Harmonic, exportCancellation.Token);
+                            cache = harmonicCache;
+                        }
+                        if (selection.Export) {
+                            var file = Path.Combine(folder, $"{AudioExport.SafeFileName(name)}-{index + 1:D2}-{AudioExport.SafeFileName(project.tracks[index].TrackName)}.wav");
+                            using var stem = new WaveFileReader(cache);
+                            AudioExport.WriteWave(file, stem.ToSampleProvider(), options);
+                            outputs.Add(file);
+                            if (options.Aspiration == AspirationOutput.Separate && noiseCache != null) {
+                                var noiseFile = Path.Combine(folder, Path.GetFileNameWithoutExtension(file) + "-aspiration.wav");
+                                using var noiseStem = new WaveFileReader(noiseCache);
+                                AudioExport.WriteWave(noiseFile, noiseStem.ToSampleProvider(), options);
+                                outputs.Add(noiseFile);
+                            }
+                        }
+                        if (mixdown) {
+                            var reader = new WaveFileReader(cache);
+                            readers.Add(reader);
+                            mixInputs.Add(reader.ToSampleProvider());
+                            if (options.Aspiration == AspirationOutput.Separate && noiseCache != null) {
+                                var noiseReader = new WaveFileReader(noiseCache);
+                                readers.Add(noiseReader);
+                                noiseInputs.Add(noiseReader.ToSampleProvider());
+                            }
+                        }
+                    }
+                    if (mixdown) {
+                        var mixer = new MixingSampleProvider(WaveFormat.CreateIeeeFloatWaveFormat(44100, 2));
+                        foreach (var input in mixInputs) { mixer.AddMixerInput(input); }
+                        var file = Path.Combine(folder, AudioExport.SafeFileName(name) + ".wav");
+                        AudioExport.WriteWave(file, new VolumeSampleProvider(mixer) { Volume = (float)mixGain }, options);
+                        outputs.Add(file);
+                        if (options.Aspiration == AspirationOutput.Separate && noiseInputs.Count > 0) {
+                            var noiseMixer = new MixingSampleProvider(WaveFormat.CreateIeeeFloatWaveFormat(44100, 2));
+                            foreach (var input in noiseInputs) { noiseMixer.AddMixerInput(input); }
+                            var noiseFile = Path.Combine(folder, AudioExport.SafeFileName(name) + "-aspiration.wav");
+                            AudioExport.WriteWave(noiseFile, new VolumeSampleProvider(noiseMixer) { Volume = (float)mixGain }, options);
+                            outputs.Add(noiseFile);
+                        }
+                    }
+                    return outputs.ToArray();
+                } finally {
+                    foreach (var reader in readers) { reader.Dispose(); }
+                    Directory.Delete(temporaryFolder, true);
+                }
+            });
+        }
+
         public async Task RenderMixdown(UProject project, string exportPath) {
             await Task.Run(() => {
                 try {
